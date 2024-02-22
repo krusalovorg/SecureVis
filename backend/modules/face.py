@@ -66,7 +66,7 @@ def loadFacesModels(userIds):
                 face_encodings[userId] = pickle.load(f)
     return face_encodings
 
-def detect_faces_in_video(userIds):
+def detect_faces_in_video(userIds, output=None):
     # Загрузите изображение и получите его кодировку
     face_encodings = loadFacesModels(userIds)
 
@@ -98,6 +98,9 @@ def detect_faces_in_video(userIds):
                 cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
                 cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1)
 
+        if output != None:
+            output(frame)
+
         # Показываем результат
         cv2.imshow('Video', frame)
 
@@ -109,7 +112,8 @@ def detect_faces_in_video(userIds):
     video_capture.release()
     cv2.destroyAllWindows()
 
-# Список пользователей, для которых загружаются модели
-userIds = ["Egor"]
-loadFaces(userIds[0])
-detect_faces_in_video(userIds)
+if __name__ == '__main__':
+    # Список пользователей, для которых загружаются модели
+    userIds = ["Egor"]
+    loadFaces(userIds[0])
+    detect_faces_in_video(userIds)

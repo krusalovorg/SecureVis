@@ -1,4 +1,7 @@
 import os
+from gevent.pywsgi import WSGIServer
+from geventwebsocket.handler import WebSocketHandler
+
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
 from datetime import datetime, timedelta
@@ -9,6 +12,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from bson import ObjectId
 import json
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = '12221'
@@ -16,6 +20,8 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
 jwt = JWTManager(app)
 
 CORS(app)
+
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Подключение к MongoDB
 client = MongoClient('mongodb://localhost:27017/')
@@ -283,7 +289,18 @@ def addAdminUser():
     else:
         print("Пользователь уже существует в базе данных.")
 
+@socketio.on('frame')
+def handle_frame(data):
+    print('get data',data)
+    emit('frame', {'image': data}, broadcast=True)
+
+@socketio.on("connect")
+def handle_connection(data):
+    print('connected',data)
+    emit('connect', {'test': 'data'}, broadcast=True)
 
 if __name__ == '__main__':
     addAdminUser()
-    app.run(debug=True)
+    # app.run(debug=True)
+    http_server = WSGIServer(('127.0.0.1', 5000), app, handler_class=WebSocketHandler)
+    http_server.serve_forever()

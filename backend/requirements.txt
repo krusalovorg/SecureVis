@@ -4,3 +4,5 @@ flask-jwt-extended
 bson
 pymongo
 flask-cors
+websocket-client
+flask-socketio

@@ -7,6 +7,7 @@ import { UserData, getCookieToken, getUserData } from './utils/backend';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import User from './contexts/UserContext';
+import Camera from './pages/Camera';
 
 function RouterNav() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -40,6 +41,7 @@ function RouterNav() {
                                     <Route path='/' element={<App />} />
                                     <Route path='*' element={<App />} />
                                     <Route path='/user' element={<Profile />} />
+                                    <Route path='/camera' element={<Camera />} />
                                 </Routes>
                             </VerticalHeader>
                         </User.Provider>
