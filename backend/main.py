@@ -6,9 +6,11 @@ import string
 import random
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from werkzeug.security import generate_password_hash, check_password_hash
+from bson import ObjectId
+import json
 
 app = Flask(__name__)
-app.config['JWT_SECRET_KEY'] = 'your_secret_key'
+app.config['JWT_SECRET_KEY'] = '12221'
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
 jwt = JWTManager(app)
 # Подключение к MongoDB
@@ -21,6 +23,12 @@ admins_collection = db['admins']
 # Коллекция для сотрудников
 staff_collection = db['staff']
 enterprises_collection = db['enterprises_collection']
+
+
+def serialize_object(obj):
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    raise TypeError(repr(obj) + " is not JSON serializable")
 
 
 # add to db
@@ -69,11 +77,16 @@ def login_user():
     user = staff_collection.find_one({'login': login})
     if user and check_password_hash(user['password'], password):
         current_time = datetime.now()
-        day = current_time.strftime("%d.%m.%Y")  # Форматируем текущую дату в соответствии с требуемым форматом
-
+        day = current_time.strftime("%d:%m:%Y")  # Форматируем текущую дату в соответствии с требуемым форматом
+        print(day)
+        print(current_time.strftime("%H:%M"))
         # Обновляем настройки пользователя в базе данных
         update_query = {
-            f"settings.{day}.time_log": current_time.strftime("%H:%M")
+            f"settings.{day}": {
+                'time_log': current_time.strftime("%H:%M"),
+                'time_end': '',
+                'work': ''
+            }
         }
         staff_collection.update_one({'login': login}, {'$set': update_query})
 
@@ -83,17 +96,14 @@ def login_user():
         return jsonify({'message': 'incorrect password'}), 401
 
 
-
 @app.route('/logout', methods=['POST'])
 @jwt_required()
 def logout():
-    data = request.get_json()
-    login = data['login']
-    user = staff_collection.find_one({"login": get_jwt_identity()})
-
+    login = get_jwt_identity()
+    user = staff_collection.find_one({"login": login})
     if user:
         current_time = datetime.now()
-        day = current_time.strftime("%d.%m.%Y")  # Форматируем текущую дату в соответствии с требуемым форматом
+        day = current_time.strftime("%d:%m:%Y")  # Форматируем текущую дату в соответствии с требуемым форматом
 
         # Получаем время начала работы из настроек
         start_time = datetime.strptime(user['settings'][day]['time_log'], "%H:%M")
@@ -106,8 +116,8 @@ def logout():
 
         # Обновляем настройки пользователя в базе данных
         update_query = {
-            f"settings.{day}.end_time": end_time,
-            f"settings.{day}.work_time": work_time
+            f"settings.{day}.time_end": end_time,
+            f"settings.{day}.work": f"{work_time} hours"
         }
         staff_collection.update_one({'login': login}, {'$set': update_query})
 
@@ -116,39 +126,38 @@ def logout():
         return jsonify({'message': 'User not found'}), 404
 
 
-
 @app.route('/register_staff', methods=['POST'])
 @jwt_required()
 def register_staff():
-    data = request.get_json()
-    name = data.get('name')
-    surname = data.get('surname')
-    patronymic = data.get('patronymic')
-    position = data.get('position')
-    statistic = []
-    timetable = data.get('timetable')
-    worktime = data.get('worktime')
-    org_id = data.get("org_id")
-    photo = request.files['photo'] if 'photo' in request.files else None
+    if admins_collection.find_one({"email": get_jwt_identity()}):
+        data = request.get_json()
+        name = data.get('name')
+        surname = data.get('surname')
+        patronymic = data.get('patronymic')
+        position = data.get('position')
+        settings = []
+        timetable = data.get('timetable')
+        worktime = data.get('worktime')
+        org_id = data.get("org_id")
+        photo = request.files['photo'] if 'photo' in request.files else None
 
-    login = generate_unique(name, 'login')
-    password = generate_unique(surname, 'password')
-    print(f'password - {password} , login - {login}')
-    if photo:
-        photo_path = os.path.join(app.config['UPLOAD_FOLDER'], photo.filename)
-        photo.save(photo_path)
-    else:
-        photo_path = None
+        login = generate_unique(name, 'login')
+        password = generate_unique(surname, 'password')
+        print(f'password - {password} , login - {login}')
+        if photo:
+            photo_path = os.path.join(app.config['UPLOAD_FOLDER'], photo.filename)
+            photo.save(photo_path)
+        else:
+            photo_path = None
 
-    add_to_database(
-        {'name': name, 'surname': surname, 'patronymic': patronymic, 'position': position, 'statistic': statistic,
-         'timetable': timetable,
-         'worktime': worktime, 'login': login, 'password': generate_password_hash(password, method='pbkdf2:sha256'),
-         'org_id': org_id, 'photo_path': photo_path},
-        'staff')
+        add_to_database(
+            {'name': name, 'surname': surname, 'patronymic': patronymic, 'position': position, 'settings': settings,
+             'timetable': timetable,
+             'worktime': worktime, 'login': login, 'password': generate_password_hash(password, method='pbkdf2:sha256'),
+             'org_id': org_id, 'photo_path': photo_path},
+            'staff')
 
-    return jsonify({'message': 'User registered successfully'}), 200
-
+        return jsonify({'message': 'User registered successfully'}), 200
 
 
 @app.route('/update_staff', methods=['PUT'])
@@ -165,69 +174,78 @@ def update_staff():
     updated_fields.pop('login', None)
     updated_fields.pop('password', None)
 
-    staff_collection.update_one({'_id': data.get('id')}, {'$set': updated_fields})
+    staff_collection.update_one({'_id': ObjectId(data.get('id'))}, {'$set': updated_fields})
     return jsonify({'message': 'Staff updated successfully'}), 200
-
 
 
 @app.route('/get_staff', methods=['GET'])
 @jwt_required()
 def get_staff():
-    data = request.get_json()
-    staff = staff_collection.find_one({'_id': data.get('id')})
-    if staff:
-        return jsonify(staff), 200
-    else:
-        return jsonify({'message': 'Staff not found'}), 404
-
+    if admins_collection.find_one({"email": get_jwt_identity()}):
+        data = request.get_json()
+        staff = staff_collection.find_one({'_id': ObjectId(data.get('id'))})
+        if staff:
+            serialized_result = json.loads(json.dumps(staff, default=serialize_object))
+            return serialized_result
+        else:
+            return jsonify({'message': 'Staff not found'}), 404
 
 
 @app.route('/get_staffs', methods=['GET'])
 @jwt_required()
 def get_staffs():
-    data = request.get_json()
-    staffs = staff_collection.find({'org_id': data.get('org_id')})
-    return jsonify(staffs), 200
-
+    if admins_collection.find_one({"email": get_jwt_identity()}):
+        data = request.get_json()
+        staffs = staff_collection.find({'org_id': data.get('org_id')})
+        staff_list = [staff for staff in staffs]
+        serialized_result = json.loads(json.dumps(staff_list, default=serialize_object))
+        return serialized_result
 
 
 @app.route('/get_enterprise', methods=['GET'])
 @jwt_required()
 def get_enterprise():
-    data = request.get_json()
-    enterprise = enterprises_collection.find_one({'_id': data.get('id')})
-    if enterprise:
-        return jsonify(enterprise), 200
-    else:
-        return jsonify({'message': 'Enterprise not found'}), 404
-
+    if admins_collection.find_one({"email": get_jwt_identity()}):
+        data = request.get_json()
+        enterprise = enterprises_collection.find_one({'_id': ObjectId(data.get('id'))})
+        if enterprise:
+            return jsonify(enterprise), 200
+        else:
+            return jsonify({'message': 'Enterprise not found'}), 404
 
 
 @app.route('/add_enterprise', methods=['POST'])
 @jwt_required()
 def add_enterprise():
-    data = request.get_json()
-    add_to_database(data, 'enterprise')
-    return jsonify({'message': 'Enterprise added successfully'}), 200
+    if admins_collection.find_one({"email": get_jwt_identity()}):
+        data = request.get_json()
+        add_to_database(data, 'enterprise')
+        return jsonify({'message': 'Enterprise added successfully'}), 200
 
 
 @app.route('/update_enterprise', methods=['PUT'])
+@jwt_required()
 def update_enterprise():
-    data = request.get_json()
-    updated_fields = {}
-    for key in data:
-        updated_fields[key] = data[key]
+    if admins_collection.find_one({"email": get_jwt_identity()}):
+        data = request.get_json()
+        updated_fields = {}
+        for key in data:
+            updated_fields[key] = data[key]
 
-    enterprises_collection.update_one({'_id': data.get('id')}, {'$set': updated_fields})
-    return jsonify({'message': 'Enterprise updated successfully'}), 200
+        updated_fields.pop('id', None)
+        enterprises_collection.update_one({'_id': ObjectId(data.get('id'))}, {'$set': updated_fields})
 
+        return jsonify({'message': 'Enterprise updated successfully'}), 200
 
 
 @app.route('/get_enterprises', methods=['GET'])
 @jwt_required()
 def get_enterprises():
-    enterprises = enterprises_collection.find()
-    return jsonify(enterprises), 200
+    if admins_collection.find_one({"email": get_jwt_identity()}):
+        enterprises = enterprises_collection.find()
+        enterprises_list = [enterprise for enterprise in enterprises]
+        serialized_result = json.loads(json.dumps(enterprises_list, default=serialize_object))
+        return serialized_result
 
 
 def addAdminUser():
