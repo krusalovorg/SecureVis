@@ -8,11 +8,15 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from werkzeug.security import generate_password_hash, check_password_hash
 from bson import ObjectId
 import json
+from flask_cors import CORS
 
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = '12221'
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
 jwt = JWTManager(app)
+
+CORS(app)
+
 # Подключение к MongoDB
 client = MongoClient('mongodb://localhost:27017/')
 db = client['Security_db']
@@ -63,6 +67,7 @@ def login_admin():
     data = request.get_json()
     password = data['password']
     email = data['email']
+    print(password, email)
     user = admins_collection.find_one({'email': email})
     if user and check_password_hash(user['password'], password):
         access_token = create_access_token(identity=email)
@@ -85,7 +90,7 @@ def login_user():
         print(current_time.strftime("%H:%M"))
         # Обновляем настройки пользователя в базе данных
         update_query = {
-            f"settings.{day}": {
+            f"statistics.{day}": {
                 'time_log': current_time.strftime("%H:%M"),
                 'time_end': '',
                 'work': ''
@@ -110,7 +115,7 @@ def logout():
         day = current_time.strftime("%d:%m:%Y")  # Форматируем текущую дату в соответствии с требуемым форматом
 
         # Получаем время начала работы из настроек
-        start_time = datetime.strptime(user['settings'][day]['time_log'], "%H:%M")
+        start_time = datetime.strptime(user['statistics'][day]['time_log'], "%H:%M")
 
         # Получаем время окончания работы
         end_time = current_time.strftime("%H:%M")
@@ -120,8 +125,8 @@ def logout():
 
         # Обновляем настройки пользователя в базе данных
         update_query = {
-            f"settings.{day}.time_end": end_time,
-            f"settings.{day}.work": f"{work_time} hours"
+            f"statistics.{day}.time_end": end_time,
+            f"statistics.{day}.work": f"{work_time} hours"
         }
         staff_collection.update_one({'login': login}, {'$set': update_query})
 
@@ -131,7 +136,7 @@ def logout():
 
 
 # админа зарегестрировать сотрудника
-@app.route('/register_staff', methods=['POST'])
+@app.route('/staff', methods=['POST'])
 @jwt_required()
 def register_staff():
     if admins_collection.find_one({"email": get_jwt_identity()}):
@@ -140,7 +145,6 @@ def register_staff():
         surname = data.get('surname')
         patronymic = data.get('patronymic')
         position = data.get('position')
-        settings = []
         timetable = data.get('timetable')
         worktime = data.get('worktime')
         org_id = data.get("org_id")
@@ -156,7 +160,7 @@ def register_staff():
             photo_path = None
 
         add_to_database(
-            {'name': name, 'surname': surname, 'patronymic': patronymic, 'position': position, 'settings': settings,
+            {'name': name, 'surname': surname, 'patronymic': patronymic, 'position': position, 'statistics': [],
              'timetable': timetable,
              'worktime': worktime, 'login': login, 'password': generate_password_hash(password, method='pbkdf2:sha256'),
              'org_id': org_id, 'photo_path': photo_path},
@@ -166,7 +170,7 @@ def register_staff():
 
 
 # изменить параметры сотрудника
-@app.route('/update_staff', methods=['PUT'])
+@app.route('/staff', methods=['PUT'])
 @jwt_required()
 def update_staff():
     data = request.get_json()
@@ -185,7 +189,7 @@ def update_staff():
 
 
 # получить данные о пользователе по id
-@app.route('/get_staff', methods=['GET'])
+@app.route('/staff', methods=['GET'])
 @jwt_required()
 def get_staff():
     if admins_collection.find_one({"email": get_jwt_identity()}):
@@ -199,7 +203,7 @@ def get_staff():
 
 
 # все сотрудники
-@app.route('/get_staffs', methods=['GET'])
+@app.route('/staffs', methods=['GET'])
 @jwt_required()
 def get_staffs():
     if admins_collection.find_one({"email": get_jwt_identity()}):
@@ -211,7 +215,7 @@ def get_staffs():
 
 
 # данные о предприятии
-@app.route('/get_enterprise', methods=['GET'])
+@app.route('/enterprise', methods=['GET'])
 @jwt_required()
 def get_enterprise():
     if admins_collection.find_one({"email": get_jwt_identity()}):
@@ -224,7 +228,7 @@ def get_enterprise():
 
 
 # добавить предприятие
-@app.route('/add_enterprise', methods=['POST'])
+@app.route('/enterprise', methods=['POST'])
 @jwt_required()
 def add_enterprise():
     if admins_collection.find_one({"email": get_jwt_identity()}):
@@ -234,7 +238,7 @@ def add_enterprise():
 
 
 # обновить данные предприятия
-@app.route('/update_enterprise', methods=['PUT'])
+@app.route('/enterprise', methods=['PUT'])
 @jwt_required()
 def update_enterprise():
     if admins_collection.find_one({"email": get_jwt_identity()}):
@@ -250,8 +254,7 @@ def update_enterprise():
 
 
 # все предприятия
-
-@app.route('/get_enterprises', methods=['GET'])
+@app.route('/enterprises', methods=['GET'])
 @jwt_required()
 def get_enterprises():
     if admins_collection.find_one({"email": get_jwt_identity()}):
@@ -264,7 +267,7 @@ def get_enterprises():
 def addAdminUser():
     new_user_data = {
         "email": "admin@admin.admin",
-        "name": "admin"
+        "name": "admin",
     }
 
     # Поиск пользователя по email

@@ -1,2 +1,6 @@
 face-recognition
 flask
+flask-jwt-extended
+bson
+pymongo
+flask-cors
