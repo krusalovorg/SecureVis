@@ -41,6 +41,7 @@ def add_to_database(data, db):
         enterprises_collection.insert_one(data)
 
 
+# создание уникального login или password
 def generate_unique(word, why):
     while True:
         login = word  # Ваше желаемое начальное имя логина
@@ -56,6 +57,7 @@ def generate_unique(word, why):
                 return unique
 
 
+# войти в аккаунт администратора
 @app.route('/login_admin', methods=['POST'])
 def login_admin():
     data = request.get_json()
@@ -69,6 +71,7 @@ def login_admin():
         return jsonify({'message': 'incorrect password'}), 401
 
 
+# пользователю войти в аккаунт
 @app.route('/login_user', methods=['POST'])
 def login_user():
     data = request.get_json()
@@ -96,6 +99,7 @@ def login_user():
         return jsonify({'message': 'incorrect password'}), 401
 
 
+# пользователю выйти из аккаунта
 @app.route('/logout', methods=['POST'])
 @jwt_required()
 def logout():
@@ -126,6 +130,7 @@ def logout():
         return jsonify({'message': 'User not found'}), 404
 
 
+# админа зарегестрировать сотрудника
 @app.route('/register_staff', methods=['POST'])
 @jwt_required()
 def register_staff():
@@ -160,6 +165,7 @@ def register_staff():
         return jsonify({'message': 'User registered successfully'}), 200
 
 
+# изменить параметры сотрудника
 @app.route('/update_staff', methods=['PUT'])
 @jwt_required()
 def update_staff():
@@ -178,6 +184,7 @@ def update_staff():
     return jsonify({'message': 'Staff updated successfully'}), 200
 
 
+# получить данные о пользователе по id
 @app.route('/get_staff', methods=['GET'])
 @jwt_required()
 def get_staff():
@@ -191,6 +198,7 @@ def get_staff():
             return jsonify({'message': 'Staff not found'}), 404
 
 
+# все сотрудники
 @app.route('/get_staffs', methods=['GET'])
 @jwt_required()
 def get_staffs():
@@ -202,6 +210,7 @@ def get_staffs():
         return serialized_result
 
 
+# данные о предприятии
 @app.route('/get_enterprise', methods=['GET'])
 @jwt_required()
 def get_enterprise():
@@ -214,6 +223,7 @@ def get_enterprise():
             return jsonify({'message': 'Enterprise not found'}), 404
 
 
+# добавить предприятие
 @app.route('/add_enterprise', methods=['POST'])
 @jwt_required()
 def add_enterprise():
@@ -223,6 +233,7 @@ def add_enterprise():
         return jsonify({'message': 'Enterprise added successfully'}), 200
 
 
+# обновить данные предприятия
 @app.route('/update_enterprise', methods=['PUT'])
 @jwt_required()
 def update_enterprise():
@@ -237,6 +248,8 @@ def update_enterprise():
 
         return jsonify({'message': 'Enterprise updated successfully'}), 200
 
+
+# все предприятия
 
 @app.route('/get_enterprises', methods=['GET'])
 @jwt_required()
