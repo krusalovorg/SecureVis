@@ -84,28 +84,39 @@ def login_admin():
 @app.route('/login_user', methods=['POST'])
 def login_user():
     data = request.get_json()
-    password = data['password']
-    login = data['login']
-    user = staff_collection.find_one({'login': login})
-    if user and check_password_hash(user['password'], password):
-        current_time = datetime.now()
-        day = current_time.strftime("%d:%m:%Y")  # Форматируем текущую дату в соответствии с требуемым форматом
-        print(day)
-        print(current_time.strftime("%H:%M"))
-        # Обновляем настройки пользователя в базе данных
-        update_query = {
-            f"statistics.{day}": {
-                'time_log': current_time.strftime("%H:%M"),
-                'time_end': '',
-                'work': ''
-            }
-        }
-        staff_collection.update_one({'login': login}, {'$set': update_query})
-
-        access_token = create_access_token(identity=login)
-        return jsonify(access_token=access_token), 200
+    if data['email']:
+        password = data['password']
+        email = data['email']
+        user = enterprises_collection.find_one({'email': email})
+        print(user)
+        if user and check_password_hash(user['password'], password):
+            access_token = create_access_token(identity=email)
+            return jsonify(access_token=access_token), 200
+        else:
+            return jsonify({'message': 'incorrect password'}), 401
     else:
-        return jsonify({'message': 'incorrect password'}), 401
+        password = data['password']
+        login = data['login']
+        user = staff_collection.find_one({'login': login})
+        if user and check_password_hash(user['password'], password):
+            current_time = datetime.now()
+            day = current_time.strftime("%d:%m:%Y")  # Форматируем текущую дату в соответствии с требуемым форматом
+            print(day)
+            print(current_time.strftime("%H:%M"))
+            # Обновляем настройки пользователя в базе данных
+            update_query = {
+                f"statistics.{day}": {
+                    'time_log': current_time.strftime("%H:%M"),
+                    'time_end': '',
+                    'work': ''
+                }
+            }
+            staff_collection.update_one({'login': login}, {'$set': update_query})
+
+            access_token = create_access_token(identity=login)
+            return jsonify(access_token=access_token), 200
+        else:
+            return jsonify({'message': 'incorrect password'}), 401
 
 
 # пользователю выйти из аккаунта
@@ -143,7 +154,8 @@ def logout():
 @app.route('/staff', methods=['POST'])
 @jwt_required()
 def register_staff():
-    if admins_collection.find_one({"email": get_jwt_identity()}):
+    if admins_collection.find_one({"email": get_jwt_identity()}) or enterprises_collection.find_one(
+            {"email": get_jwt_identity()}):
         data = request.get_json()
         name = data.get('name')
         surname = data.get('surname')
@@ -222,11 +234,13 @@ def get_staffs():
 @app.route('/enterprise', methods=['GET'])
 @jwt_required()
 def get_enterprise():
-    if admins_collection.find_one({"email": get_jwt_identity()}):
+    if admins_collection.find_one({"email": get_jwt_identity()}) or enterprises_collection.find_one(
+            {"email": get_jwt_identity()}):
         data = request.get_json()
         enterprise = enterprises_collection.find_one({'_id': ObjectId(data.get('id'))})
         if enterprise:
-            return jsonify(enterprise), 200
+            serialized_result = json.loads(json.dumps(enterprise, default=serialize_object))
+            return serialized_result
         else:
             return jsonify({'message': 'Enterprise not found'}), 404
 
@@ -237,7 +251,12 @@ def get_enterprise():
 def add_enterprise():
     if admins_collection.find_one({"email": get_jwt_identity()}):
         data = request.get_json()
-        add_to_database(data, 'enterprise')
+        name = data['name']
+        org_id = data['org_id']
+        email = data['email']
+        password = data['password']
+        add_to_database({"name": name, "email": email, "org_id": org_id,
+                         "password": generate_password_hash(password, method='pbkdf2:sha256')}, 'enterprise')
         return jsonify({'message': 'Enterprise added successfully'}), 200
 
 
@@ -245,13 +264,15 @@ def add_enterprise():
 @app.route('/enterprise', methods=['PUT'])
 @jwt_required()
 def update_enterprise():
-    if admins_collection.find_one({"email": get_jwt_identity()}):
+    if admins_collection.find_one({"email": get_jwt_identity()}) or enterprises_collection.find_one(
+            {"email": get_jwt_identity()}):
         data = request.get_json()
         updated_fields = {}
         for key in data:
             updated_fields[key] = data[key]
 
         updated_fields.pop('id', None)
+        updated_fields['password'] = generate_password_hash('123456', method='pbkdf2:sha256')
         enterprises_collection.update_one({'_id': ObjectId(data.get('id'))}, {'$set': updated_fields})
 
         return jsonify({'message': 'Enterprise updated successfully'}), 200
@@ -263,9 +284,9 @@ def update_enterprise():
 def get_enterprises():
     if admins_collection.find_one({"email": get_jwt_identity()}):
         enterprises = enterprises_collection.find()
-        enterprises_list = [enterprise for enterprise in enterprises]
-        serialized_result = json.loads(json.dumps(enterprises_list, default=serialize_object))
-        return serialized_result
+    enterprises_list = [enterprise for enterprise in enterprises]
+    serialized_result = json.loads(json.dumps(enterprises_list, default=serialize_object))
+    return serialized_result
 
 
 def addAdminUser():
@@ -287,8 +308,9 @@ def addAdminUser():
     else:
         print("Пользователь уже существует в базе данных.")
 
+
 if __name__ == '__main__':
     addAdminUser()
     app.run(debug=True)
-    #http_server = WSGIServer(('127.0.0.1', 5000), app, handler_class=WebSocketHandler)
-    #http_server.serve_forever()
+    # http_server = WSGIServer(('127.0.0.1', 5000), app, handler_class=WebSocketHandler)
+    # http_server.serve_forever()
