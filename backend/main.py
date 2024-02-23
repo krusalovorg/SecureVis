@@ -165,10 +165,9 @@ def register_staff():
 
             print('avatar::::::::::::::', image)
             path = os.path.join(app.root_path, 'images',
-                                enterprises_collection.find_one({"email": get_jwt_identity()})['name'],
+                                enterprises_collection.find_one({"email": get_jwt_identity()})['name'], name,
                                 image.filename)
             image.save(path)
-
             login = generate_unique(name, 'login')
             password = generate_unique(surname, 'password')
             print(f'password - {password} , login - {login}')
@@ -198,17 +197,19 @@ def update_staff():
         updated_fields[key] = data[key]
 
     # Удаляем поля, которые не нужно обновлять
-    updated_fields.pop('_id', None)
-    updated_fields.pop('login', None)
-    updated_fields.pop('password', None)
+
     if request.files.get("face") != None:
         image = request.files['face']
 
         print('avatar::::::::::::::', image)
         path = os.path.join(app.root_path, 'images',
                             enterprises_collection.find_one({"email": get_jwt_identity()})['name'],
+                            staff_collection.find_one({"_id": "_id"})['name'],
                             image.filename)
         image.save(path)
+        updated_fields.pop('_id', None)
+        updated_fields.pop('login', None)
+        updated_fields.pop('password', None)
         updated_fields['photo_path'] = path
     staff_collection.update_one({'_id': ObjectId(data.get('id'))}, {'$set': updated_fields})
     return jsonify({'message': 'Staff updated successfully'}), 200
