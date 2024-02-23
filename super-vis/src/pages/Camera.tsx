@@ -29,6 +29,11 @@ function Camera() {
             }
         });
 
+        socket.on('connect', (data: any) => {
+            console.log(data)
+            socket.emit("connect", 'ffffffff')
+        })
+
         return () => {
             socket.disconnect();
         };

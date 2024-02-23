@@ -21,7 +21,7 @@ jwt = JWTManager(app)
 
 CORS(app)
 
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", cors_credentials=True)
 
 # Подключение к MongoDB
 client = MongoClient('mongodb://localhost:27017/')
@@ -292,15 +292,19 @@ def addAdminUser():
 @socketio.on('frame')
 def handle_frame(data):
     print('get data',data)
+    if not data or 'image' not in data:
+        print('Empty or invalid data received')
+        return
     emit('frame', {'image': data}, broadcast=True)
 
-@socketio.on("connect")
-def handle_connection(data):
-    print('connected',data)
-    emit('connect', {'test': 'data'}, broadcast=True)
+@socketio.on('message')
+def handle_message(data):
+    print('received message: ' + data)
+    emit('response', 'This is a message from Flask.')
 
 if __name__ == '__main__':
     addAdminUser()
-    # app.run(debug=True)
-    http_server = WSGIServer(('127.0.0.1', 5000), app, handler_class=WebSocketHandler)
-    http_server.serve_forever()
+    socketio.run(app, debug=True, port=5000)
+    #app.run(debug=True)
+    #http_server = WSGIServer(('127.0.0.1', 5000), app, handler_class=WebSocketHandler)
+    #http_server.serve_forever()
