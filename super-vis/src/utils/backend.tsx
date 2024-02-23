@@ -11,8 +11,8 @@ async function requestData(url: string) {
 
 export const getUserData = async (token: string) => {
     try {
-        const response = await fetch(URL_SERVER + "/get_user_by_key", {
-            method: "POST",
+        const response = await fetch(URL_SERVER + "/account", {
+            method: "GET",
             headers: {
                 "Content-Type": "application/json",
                 Authorization: "Bearer " + token,
@@ -43,38 +43,62 @@ export type UserData = {
     name: string;
     surname: string;
     patronymic: string;
-    phone_number?: string;
     email: string;
-    birthday?: string;
-    position?: string;
-    isDoctor?: boolean;
-    avatar: string,
     _id?: any;
-    city?: string;
 };
 
-export const getDoctors = async (searchText: string) => {
+export type Enterprise = {
+    name: string;
+    email: string;
+    type: "admin" | "enterprise";
+    _id: string;
+}
+
+export const getEnterprises = async () => {
     try {
-        console.log('cookie:::', getCookieToken())
-        const response = await fetch(URL_SERVER + "/show_doctor", {
-            method: "POST",
+        const response = await fetch(URL_SERVER + "/enterprises", {
+            method: "GET",
             headers: {
                 "Content-Type": "application/json",
                 Authorization: "Bearer " + getCookieToken(),
-            },
-            body: JSON.stringify({ search_item: searchText }),
+            }
         });
         if (!response.ok) {
             throw new Error("Network response was not ok");
         }
         const data = await response.json();
-        return data as UserData[];
+        return data as Enterprise[];
     } catch (error) {
         console.error("Error fetching data:", error);
         throw error;
     }
 };
 
+export type Staff = {
+    name: string;
+    position: string;
+    _id: string;
+}
+
+export const getStaffs = async ({org_id}: {org_id: string}) => {
+    try {
+        const response = await fetch(URL_SERVER + "/staffs", {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer " + getCookieToken(),
+            }
+        });
+        if (!response.ok) {
+            throw new Error("Network response was not ok");
+        }
+        const data = await response.json();
+        return data as Staff[];
+    } catch (error) {
+        console.error("Error fetching data:", error);
+        throw error;
+    }
+};
 
 export const getPositions = async () => {
     try {
@@ -90,47 +114,6 @@ export const getPositions = async () => {
         }
         const data = await response.json();
         return data as string[];
-    } catch (error) {
-        console.error("Error fetching data:", error);
-        throw error;
-    }
-};
-
-export const getChats = async () => {
-    try {
-        console.log('cookie:::', getCookieToken())
-        const response = await fetch(URL_SERVER + "/show_chats", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + getCookieToken(),
-            }
-        })
-        if (!response.ok) {
-            throw new Error("Network response was not ok");
-        }
-        const data = await response.json();
-        return data as UserData[];
-    } catch (error) {
-        console.error("Error fetching data:", error);
-        throw error;
-    }
-};
-
-export const getReferences = async () => {
-    try {
-        const response = await fetch(URL_SERVER + "/show_references", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: "Bearer " + getCookieToken(),
-            }
-        });
-        if (!response.ok) {
-            throw new Error("Network response was not ok");
-        }
-        const data = await response.json();
-        return data as UserData[];
     } catch (error) {
         console.error("Error fetching data:", error);
         throw error;

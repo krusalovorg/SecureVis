@@ -2,6 +2,7 @@ import { useContext } from "react";
 import UserContext from "../contexts/UserContext";
 import { getImage } from "../utils/backend";
 import { useNavigate } from "react-router-dom";
+import UserIcon from '../icons/user.svg';
 
 function Header() {
     const userData = useContext(UserContext);
@@ -18,7 +19,7 @@ function Header() {
                 <div className="flex flex-row items-center cursor-pointer" onClick={() => navigate('/user')}>
                     <h1 className="text-black font-semibold">{userData.surname} {userData.name}</h1>
                     <img
-                        src={getImage(userData?.avatar)}
+                        src={UserIcon}
                         className="w-[42px] h-[42px] rounded-full ml-2"
                     />
                 </div>

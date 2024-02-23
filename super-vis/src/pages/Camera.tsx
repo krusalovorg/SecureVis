@@ -2,41 +2,46 @@ import { useContext, useEffect, useRef, useState } from "react";
 import { URL_SERVER, getCookieToken, getImage } from "../utils/backend";
 import Input from "../components/Input";
 import UserContext from "../contexts/UserContext";
-import io from 'socket.io-client';
 
 function Camera() {
     const userData = useContext(UserContext);
     const videoRef = useRef<HTMLImageElement>(null);
-    
-    const socket = io(URL_SERVER, {
-        autoConnect: false,
-    });
-
 
     useEffect(() => {
-        if (userData) {
+        const socket = new WebSocket('ws://127.0.0.1:5001'); // Replace with your server address
 
-        }
-        console.log('usetrdata', userData)
-    }, [userData])
-
-    useEffect(() => {
-        socket.connect();
-        socket.on('frame', (data: any) => {
-            console.log(data)
-            if (videoRef.current && videoRef.current.src) {
-                videoRef.current.src = `data:image/jpeg;base64,${data.image}`;
-            }
-        });
-
-        socket.on('connect', (data: any) => {
-            console.log(data)
-            socket.emit("connect", 'ffffffff')
-        })
-
-        return () => {
-            socket.disconnect();
+        socket.onopen = () => {
+            console.log('WebSocket connection established.');
         };
+
+        socket.onmessage = async (event) => {
+            // Handle received video frames here (e.g., display in a video element)
+            console.log('Received video:', event.data);
+
+            const base64String = event.data;
+            const byteArray = new Uint8Array(atob(base64String).split('').map(char => char.charCodeAt(0)));
+        
+            // Создаем Blob из массива байт
+            const blob = new Blob([byteArray], { type: 'image/jpeg' });
+        
+            // Создаем URL из Blob
+            const imageUrl = URL.createObjectURL(blob);
+            console.log('imageUrl', imageUrl);
+        
+            if (videoRef.current) {
+                videoRef.current.src = imageUrl;
+            }
+        
+        };
+
+        socket.onclose = () => {
+            console.log('WebSocket connection closed.');
+        };
+
+        // Clean up when component unmounts
+        // return () => {
+        //   socket.close();
+        // };
     }, []);
 
     return (
@@ -51,7 +56,7 @@ function Camera() {
                         </div>
                     </div>
                     <div className="px-[3%] pt-2 flex flex-row w-full">
-                        <img ref={videoRef} alt="Video stream" />
+                        <img ref={videoRef} className="w-full h-full" alt="Video stream" />
                     </div>
                 </div>
             </div>

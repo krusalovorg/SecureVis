@@ -8,6 +8,8 @@ import Login from './pages/Login';
 import Profile from './pages/Profile';
 import User from './contexts/UserContext';
 import Camera from './pages/Camera';
+import Enterprises from './pages/Enterprises';
+import Staff from './pages/Staff';
 
 function RouterNav() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -42,6 +44,8 @@ function RouterNav() {
                                     <Route path='*' element={<App />} />
                                     <Route path='/user' element={<Profile />} />
                                     <Route path='/camera' element={<Camera />} />
+                                    <Route path='/enterprises' element={<Enterprises />} />
+                                    <Route path='/staff' element={<Staff />} />
                                 </Routes>
                             </VerticalHeader>
                         </User.Provider>

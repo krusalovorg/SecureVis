@@ -25,13 +25,9 @@ CORS(app)
 client = MongoClient('mongodb://localhost:27017/')
 db = client['Security_db']
 
-# Коллекция для администраторов
-admins_collection = db['admins']
-
 # Коллекция для сотрудников
 staff_collection = db['staff']
 enterprises_collection = db['enterprises_collection']
-
 
 def serialize_object(obj):
     if isinstance(obj, ObjectId):
@@ -41,9 +37,7 @@ def serialize_object(obj):
 
 # add to db
 def add_to_database(data, db):
-    if db == 'admins':
-        admins_collection.insert_one(data)
-    elif db == 'staff':
+    if db == 'staff':
         staff_collection.insert_one(data)
     elif db == 'enterprise':
         enterprises_collection.insert_one(data)
@@ -72,7 +66,7 @@ def login_admin():
     password = data['password']
     email = data['email']
     print(password, email)
-    user = admins_collection.find_one({'email': email})
+    user = enterprises_collection.find_one({'email': email})
     if user and check_password_hash(user['password'], password):
         access_token = create_access_token(identity=email)
         return jsonify(access_token=access_token), 200
@@ -154,8 +148,7 @@ def logout():
 @app.route('/staff', methods=['POST'])
 @jwt_required()
 def register_staff():
-    if admins_collection.find_one({"email": get_jwt_identity()}) or enterprises_collection.find_one(
-            {"email": get_jwt_identity()}):
+    if enterprises_collection.find_one({"email": get_jwt_identity()}):
         data = request.get_json()
         name = data.get('name')
         surname = data.get('surname')
@@ -165,6 +158,13 @@ def register_staff():
         worktime = data.get('worktime')
         org_id = data.get("org_id")
         photo = request.files['photo'] if 'photo' in request.files else None
+
+        if request.files.get("avatar") != None:
+            image = request.files['avatar']
+
+            print('avatar::::::::::::::', image)
+            path = os.path.join(app.root_path, 'images', image.filename)
+            image.save(path)
 
         login = generate_unique(name, 'login')
         password = generate_unique(surname, 'password')
@@ -208,7 +208,8 @@ def update_staff():
 @app.route('/staff', methods=['GET'])
 @jwt_required()
 def get_staff():
-    if admins_collection.find_one({"email": get_jwt_identity()}):
+    email = get_jwt_identity()
+    if enterprises_collection.find_one({"email": email}) or staff_collection.find_one({"email": email}):
         data = request.get_json()
         staff = staff_collection.find_one({'_id': ObjectId(data.get('id'))})
         if staff:
@@ -222,19 +223,20 @@ def get_staff():
 @app.route('/staffs', methods=['GET'])
 @jwt_required()
 def get_staffs():
-    if admins_collection.find_one({"email": get_jwt_identity()}):
-        data = request.get_json()
-        staffs = staff_collection.find({'org_id': data.get('org_id')})
+    enter = enterprises_collection.find_one({"email": get_jwt_identity()})
+    print(enter)
+    if enter:
+        staffs = staff_collection.find({'org_id': enter["_id"]})
         staff_list = [staff for staff in staffs]
         serialized_result = json.loads(json.dumps(staff_list, default=serialize_object))
         return serialized_result
 
 
 # данные о предприятии
-@app.route('/enterprise', methods=['GET'])
+@app.route('/get_enterprise', methods=['POST'])
 @jwt_required()
 def get_enterprise():
-    if admins_collection.find_one({"email": get_jwt_identity()}) or enterprises_collection.find_one(
+    if enterprises_collection.find_one(
             {"email": get_jwt_identity()}):
         data = request.get_json()
         enterprise = enterprises_collection.find_one({'_id': ObjectId(data.get('id'))})
@@ -242,29 +244,40 @@ def get_enterprise():
             serialized_result = json.loads(json.dumps(enterprise, default=serialize_object))
             return serialized_result
         else:
-            return jsonify({'message': 'Enterprise not found'}), 404
+            return jsonify({'message': 'Организация не найдена'}), 404
+
+@app.route('/account', methods=['GET'])
+@jwt_required()
+def get_account():
+    enterprise = enterprises_collection.find_one(
+            {"email": get_jwt_identity()})
+    if enterprise:
+        del enterprise['password']
+        serialized_result = json.loads(json.dumps(enterprise, default=serialize_object))
+        return serialized_result
+    else:
+        return jsonify({'message': 'none'}), 404
 
 
 # добавить предприятие
 @app.route('/enterprise', methods=['POST'])
 @jwt_required()
 def add_enterprise():
-    if admins_collection.find_one({"email": get_jwt_identity()}):
+    if enterprises_collection.find_one({"email": get_jwt_identity()}):
         data = request.get_json()
         name = data['name']
-        org_id = data['org_id']
         email = data['email']
         password = data['password']
-        add_to_database({"name": name, "email": email, "org_id": org_id,
+        add_to_database({"name": name, "email": email, "type": "enterprise",
                          "password": generate_password_hash(password, method='pbkdf2:sha256')}, 'enterprise')
-        return jsonify({'message': 'Enterprise added successfully'}), 200
+        return jsonify({'message': 'Организация добавлена успешно'}), 200
 
 
 # обновить данные предприятия
 @app.route('/enterprise', methods=['PUT'])
 @jwt_required()
 def update_enterprise():
-    if admins_collection.find_one({"email": get_jwt_identity()}) or enterprises_collection.find_one(
+    if enterprises_collection.find_one({"email": get_jwt_identity()}) or enterprises_collection.find_one(
             {"email": get_jwt_identity()}):
         data = request.get_json()
         updated_fields = {}
@@ -282,28 +295,31 @@ def update_enterprise():
 @app.route('/enterprises', methods=['GET'])
 @jwt_required()
 def get_enterprises():
-    if admins_collection.find_one({"email": get_jwt_identity()}):
-        enterprises = enterprises_collection.find()
-    enterprises_list = [enterprise for enterprise in enterprises]
-    serialized_result = json.loads(json.dumps(enterprises_list, default=serialize_object))
-    return serialized_result
+    enterprise = enterprises_collection.find_one({"email": get_jwt_identity()})
+    if enterprise:
+        enterprises = enterprises_collection.find({}, {
+            "password": 0})  # Используйте проекцию, чтобы исключить поле "password"
+        serialized_result = json.loads(json.dumps(list(enterprises), default=serialize_object))
+        return serialized_result
+    return []
 
 
 def addAdminUser():
     new_user_data = {
         "email": "admin@admin.admin",
         "name": "admin",
+        "type": "admin"
     }
 
     # Поиск пользователя по email
-    existing_user = admins_collection.find_one({"email": new_user_data["email"]})
+    existing_user = enterprises_collection.find_one({"email": new_user_data["email"]})
 
     if not existing_user:
         # Генерация хеша пароля
         hashed_password = generate_password_hash('123456', method='pbkdf2:sha256')
         new_user_data["password"] = hashed_password
         # Добавление пользователя в коллекцию
-        admins_collection.insert_one(new_user_data)
+        enterprises_collection.insert_one(new_user_data)
         print("Пользователь успешно добавлен. Пароль:", '123456')
     else:
         print("Пользователь уже существует в базе данных.")

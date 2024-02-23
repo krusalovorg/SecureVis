@@ -19,32 +19,7 @@ function Profile() {
 
     const [submited, setSubmited] = useState(false);
 
-    // const [isHovered, setIsHovered] = useState(false);
-
-    // const [file, setFile] = useState<any>();
-    // const [newFileAsImage, setNewFileAsImage] = useState<any>();
-
     const userData = useContext(UserContext);
-
-    // const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    //     const files: any = e.target.files;
-    //     setFile(files[0]);
-
-    //     const reader = new FileReader();
-    //     reader.onload = (event) => {
-    //         if (event.target) {
-    //             const result = event.target.result as ArrayBuffer;
-    //             // преобразование массива байт в изображение
-    //             const blob = new Blob([result], { type: "image/" });
-    //             const urlCreator = window.URL || window.webkitURL;
-    //             const imageUrl = urlCreator.createObjectURL(blob);
-    //             setNewFileAsImage(imageUrl);
-    //         }
-    //     };
-    //     if (files[0]) {
-    //         reader.readAsArrayBuffer(files[0]);
-    //     }
-    // };
 
     const checkErrors = (submited_local?: boolean) => {
         const fields = { name, surname, patronymic, email };
@@ -130,34 +105,6 @@ function Profile() {
                     </div>
                     <div className="px-[3%] pt-2 flex flex-row w-full">
                         <div className="w-[45%]">
-                            {/* <div
-                                className="bg-white shadow-md w-fit p-5 rounded-xl mb-5 flex flex-col justify-center items-center cursor-pointer relative"
-                                onMouseEnter={() => setIsHovered(true)}
-                                onMouseLeave={() => setIsHovered(false)}
-                            >
-                                {isHovered && (
-                                    <div className="absolute top-0 bg-gray-800 bg-opacity-25 rounded-xl w-full h-full flex items-center justify-center">
-                                        <div className="text-white text-lg">Добавить изображение</div>
-                                        <input
-                                            className="absolute w-full h-full opacity-0"
-                                            type="file"
-                                            accept=".jpg,.png"
-                                            onChange={handleImageChange}
-                                        />
-                                    </div>
-                                )}
-                                <img
-                                    src={
-                                        (file && newFileAsImage) ? newFileAsImage :
-                                            getImage(userData?.avatar)
-                                    }
-                                    className={`min-w-[160px] h-[160px] rounded-md`}
-                                    style={{
-                                        aspectRatio: 1
-                                    }}
-                                />
-                                <h2 className="text-sm text-black font-[Montserrat] mt-2 truncate max-w-[200px]">{file ? file?.name : "Наведите чтобы изменить"}</h2>
-                            </div> */}
                             <Input
                                 type="name"
                                 placeholder="Иван"
