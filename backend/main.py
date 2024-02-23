@@ -29,6 +29,7 @@ db = client['Security_db']
 staff_collection = db['staff']
 enterprises_collection = db['enterprises_collection']
 
+
 def serialize_object(obj):
     if isinstance(obj, ObjectId):
         return str(obj)
@@ -156,33 +157,34 @@ def register_staff():
         position = data.get('position')
         timetable = data.get('timetable')
         worktime = data.get('worktime')
-        org_id = data.get("org_id")
+        org_id = data.get(enterprises_collection.find_one({"email": get_jwt_identity()})['_id'])
         photo = request.files['photo'] if 'photo' in request.files else None
 
-        if request.files.get("avatar") != None:
-            image = request.files['avatar']
+        if request.files.get("face") != None:
+            image = request.files['face']
 
             print('avatar::::::::::::::', image)
-            path = os.path.join(app.root_path, 'images', image.filename)
+            path = os.path.join(app.root_path, 'images',
+                                enterprises_collection.find_one({"email": get_jwt_identity()})['name'],
+                                image.filename)
             image.save(path)
 
-        login = generate_unique(name, 'login')
-        password = generate_unique(surname, 'password')
-        print(f'password - {password} , login - {login}')
-        if photo:
-            photo_path = os.path.join(app.config['UPLOAD_FOLDER'], photo.filename)
-            photo.save(photo_path)
+            login = generate_unique(name, 'login')
+            password = generate_unique(surname, 'password')
+            print(f'password - {password} , login - {login}')
+
+            add_to_database(
+                {'name': name, 'surname': surname, 'patronymic': patronymic, 'position': position, 'statistics': [],
+                 'timetable': timetable,
+                 'worktime': worktime, 'login': login,
+                 'password': generate_password_hash(password, method='pbkdf2:sha256'),
+                 'org_id': ObjectId(org_id), 'photo_path': path},
+                'staff')
+
+            return jsonify({'message': 'User registered successfully'}), 200
+
         else:
-            photo_path = None
-
-        add_to_database(
-            {'name': name, 'surname': surname, 'patronymic': patronymic, 'position': position, 'statistics': [],
-             'timetable': timetable,
-             'worktime': worktime, 'login': login, 'password': generate_password_hash(password, method='pbkdf2:sha256'),
-             'org_id': org_id, 'photo_path': photo_path},
-            'staff')
-
-        return jsonify({'message': 'User registered successfully'}), 200
+            return jsonify({'message': 'no photo in request'}), 200
 
 
 # изменить параметры сотрудника
@@ -199,7 +201,15 @@ def update_staff():
     updated_fields.pop('_id', None)
     updated_fields.pop('login', None)
     updated_fields.pop('password', None)
+    if request.files.get("face") != None:
+        image = request.files['face']
 
+        print('avatar::::::::::::::', image)
+        path = os.path.join(app.root_path, 'images',
+                            enterprises_collection.find_one({"email": get_jwt_identity()})['name'],
+                            image.filename)
+        image.save(path)
+        updated_fields['photo_path'] = path
     staff_collection.update_one({'_id': ObjectId(data.get('id'))}, {'$set': updated_fields})
     return jsonify({'message': 'Staff updated successfully'}), 200
 
@@ -246,11 +256,12 @@ def get_enterprise():
         else:
             return jsonify({'message': 'Организация не найдена'}), 404
 
+
 @app.route('/account', methods=['GET'])
 @jwt_required()
 def get_account():
     enterprise = enterprises_collection.find_one(
-            {"email": get_jwt_identity()})
+        {"email": get_jwt_identity()})
     if enterprise:
         del enterprise['password']
         serialized_result = json.loads(json.dumps(enterprise, default=serialize_object))
@@ -268,9 +279,12 @@ def add_enterprise():
         name = data['name']
         email = data['email']
         password = data['password']
-        add_to_database({"name": name, "email": email, "type": "enterprise",
-                         "password": generate_password_hash(password, method='pbkdf2:sha256')}, 'enterprise')
-        return jsonify({'message': 'Организация добавлена успешно'}), 200
+        if not enterprises_collection.find({"email": email}):
+            add_to_database({"name": name, "email": email, "type": "enterprise",
+                             "password": generate_password_hash(password, method='pbkdf2:sha256')}, 'enterprise')
+            return jsonify({'message': 'Организация добавлена успешно'}), 200
+        else:
+            return jsonify({'message': 'организация уже существует'})
 
 
 # обновить данные предприятия
