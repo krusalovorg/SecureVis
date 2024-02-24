@@ -68,6 +68,7 @@ def generate_unique(word, why):
 @app.route('/user_event', methods=['POST'])
 def user_event():
     data = request.get_json()
+    print('connect',data)
     id = ObjectId(data.get('id'))
     current_time = datetime.now()
     day = current_time.strftime("%d:%m:%Y")  # Форматируем текущую дату в соответствии с требуемым форматом
@@ -170,38 +171,6 @@ def login_user():
         else:
             return jsonify({'message': 'incorrect password'}), 401
 
-
-# пользователю выйти из аккаунта
-@app.route('/logout', methods=['POST'])
-@jwt_required()
-def logout():
-    login = get_jwt_identity()
-    user = staff_collection.find_one({"login": login})
-    if user:
-        current_time = datetime.now()
-        day = current_time.strftime("%d:%m:%Y")  # Форматируем текущую дату в соответствии с требуемым форматом
-
-        # Получаем время начала работы из настроек
-        start_time = datetime.strptime(user['statistics'][day]['time_log'], "%H:%M")
-
-        # Получаем время окончания работы
-        end_time = current_time.strftime("%H:%M")
-
-        # Рассчитываем время работы
-        work_time = (current_time - start_time).seconds // 3600
-
-        # Обновляем настройки пользователя в базе данных
-        update_query = {
-            f"statistics.{day}.time_end": end_time,
-            f"statistics.{day}.work": f"{work_time} hours"
-        }
-        staff_collection.update_one({'login': login}, {'$set': update_query})
-
-        return jsonify({'message': 'Logout successful'}), 200
-    else:
-        return jsonify({'message': 'User not found'}), 404
-
-
 # админа зарегестрировать сотрудника
 @app.route('/staff', methods=['POST'])
 @jwt_required()
@@ -228,7 +197,7 @@ def register_staff():
             user_data = {
                 'name': name,
                 'position': position,
-                'statistics': {},
+                'statistics': [],
                 'timetable': timetable,
                 'worktime': {
                     'start': startTime,
