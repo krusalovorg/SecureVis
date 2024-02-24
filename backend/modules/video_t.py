@@ -1,4 +1,6 @@
 import asyncio
+import json
+
 import cv2
 import base64
 
@@ -61,11 +63,18 @@ async def detect_faces_in_video(userIds):
 
 async def video_sender(uri):
     global websocket_client
-    async with websockets.connect(uri) as websocket:
+
+    async with websockets.connect(uri + "/video") as websocket:
+        await websocket.send(json.dumps({
+            'apiId': apiId
+        }))
+
         async for video in detect_faces_in_video(userIds):
             await websocket.send(video)
 
+apiId = "65d9aa434419fb3469da9ce5"
+wsUrl = 'ws://127.0.0.1:5001'
 
 userIds = ["Egor"]
 
-asyncio.run(video_sender('ws://127.0.0.1:5001/video'))
+asyncio.run(video_sender(wsUrl))

@@ -7,6 +7,7 @@ const UserContext = createContext<UserData>({
   patronymic: '',
   email: '',
   _id: '',
+  type: "enterprise"
 });
 
 export default UserContext;

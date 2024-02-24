@@ -27,7 +27,7 @@ db = client['Security_db']
 
 # Коллекция для сотрудников
 staff_collection = db['staff']
-enterprises_collection = db['enterprises_collection']
+enterprises_collection = db['enterprises']
 
 
 def serialize_object(obj):
@@ -101,9 +101,8 @@ def login_user():
             # Обновляем настройки пользователя в базе данных
             update_query = {
                 f"statistics.{day}": {
-                    'time_log': current_time.strftime("%H:%M"),
-                    'time_end': '',
-                    'work': ''
+                    'logs': [],
+                    'worktime': ''
                 }
             }
             staff_collection.update_one({'login': login}, {'$set': update_query})
@@ -150,34 +149,34 @@ def logout():
 @jwt_required()
 def register_staff():
     if enterprises_collection.find_one({"email": get_jwt_identity()}):
-        data = request.get_json()
+        data = request.form
         name = data.get('name')
-        surname = data.get('surname')
-        patronymic = data.get('patronymic')
         position = data.get('position')
-        timetable = data.get('timetable')
-        worktime = data.get('worktime')
-        org_id = data.get(enterprises_collection.find_one({"email": get_jwt_identity()})['_id'])
-        photo = request.files['photo'] if 'photo' in request.files else None
+        timetable = json.loads(data.get('timetable'))
+        startTime = data.get('startTime')
+        endTime = data.get('endTime')
+
+        org_id = enterprises_collection.find_one({"email": get_jwt_identity()})['_id']
 
         if request.files.get("face") != None:
             image = request.files['face']
 
-            print('avatar::::::::::::::', image)
-            path = os.path.join(app.root_path, 'images',
-                                enterprises_collection.find_one({"email": get_jwt_identity()})['name'], name,
-                                image.filename)
+            path = os.path.join(app.root_path, 'images', str(org_id))
+            if not os.path.exists(path):
+                os.makedirs(path)
+            path = os.path.join(app.root_path, 'images', str(org_id), name+image.filename)
             image.save(path)
-            login = generate_unique(name, 'login')
-            password = generate_unique(surname, 'password')
-            print(f'password - {password} , login - {login}')
 
             add_to_database(
-                {'name': name, 'surname': surname, 'patronymic': patronymic, 'position': position, 'statistics': [],
+                {'name': name, 'position': position, 'statistics': {},
                  'timetable': timetable,
-                 'worktime': worktime, 'login': login,
-                 'password': generate_password_hash(password, method='pbkdf2:sha256'),
-                 'org_id': ObjectId(org_id), 'photo_path': path},
+                 'worktime': {
+                     'start': startTime,
+                     'end': endTime
+                 },
+                 'org_id': ObjectId(org_id),
+                 'photo_path': path,
+                 },
                 'staff')
 
             return jsonify({'message': 'User registered successfully'}), 200
@@ -280,7 +279,7 @@ def add_enterprise():
         name = data['name']
         email = data['email']
         password = data['password']
-        if not enterprises_collection.find({"email": email}):
+        if not enterprises_collection.find_one({"email": email}):
             add_to_database({"name": name, "email": email, "type": "enterprise",
                              "password": generate_password_hash(password, method='pbkdf2:sha256')}, 'enterprise')
             return jsonify({'message': 'Организация добавлена успешно'}), 200

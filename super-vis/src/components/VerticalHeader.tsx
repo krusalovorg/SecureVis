@@ -6,9 +6,12 @@ import Logout from '../icons/Logout';
 import { logout } from '../utils/backend';
 import PenWrite from '../icons/PenWrite';
 import CameraIcon from '../icons/CameraIcon';
+import { useContext } from 'react';
+import UserContext from '../contexts/UserContext';
 
 function VerticalHeader({ children }: any) {
     const navigate = useNavigate();
+    const userData = useContext(UserContext);
     const url = window.location.pathname;
 
     return (
@@ -20,9 +23,11 @@ function VerticalHeader({ children }: any) {
                 <div onClick={() => navigate("/camera")} className={`p-[20px] rounded-full cursor-pointer ${url == '/camera' ? 'text-white bg-[#0067E3]' : 'text-black'}`} >
                     <CameraIcon />
                 </div>
-                <div onClick={() => navigate("/enterprises")} className={`p-[20px] rounded-full cursor-pointer ${url == '/enterprises' ? 'text-white bg-[#0067E3]' : 'text-black'}`} >
+                {
+                    userData?.type == 'admin' &&
+                    <div onClick={() => navigate("/enterprises")} className={`p-[20px] rounded-full cursor-pointer ${url == '/enterprises' ? 'text-white bg-[#0067E3]' : 'text-black'}`} >
                     <CameraIcon />
-                </div>
+                </div>}
                 <div onClick={() => navigate("/staff")} className={`p-[20px] rounded-full cursor-pointer ${url == '/staff' ? 'text-white bg-[#0067E3]' : 'text-black'}`} >
                     <CameraIcon />
                 </div>

@@ -45,6 +45,7 @@ export type UserData = {
     patronymic: string;
     email: string;
     _id?: any;
+    type: "admin" | "enterprise";
 };
 
 export type Enterprise = {

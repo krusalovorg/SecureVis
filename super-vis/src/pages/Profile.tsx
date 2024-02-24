@@ -49,27 +49,18 @@ function Profile() {
         setSubmited(true);
         const errors = checkErrors(true);
         if (!errors) {
-            const fields = { name, surname, patronymic, email };
-            const new_userData = new FormData();
-            for (const field in fields) {
-                const value = (fields as any)[field];
-                console.log(value, (userData as any)[field], field)
-                if (value != (userData as any)[field] && value.length > 0) {
-                    new_userData.append(field, value);
-                }
-            }
-
             // if (file) {
             //     console.log("formData.images", file)
             //     new_userData.append('avatar', file, file.name);
             // }
 
-            fetch(URL_SERVER + '/update_user', {
-                method: 'POST',
+            fetch(URL_SERVER + '/enterprise', {
+                method: 'PUT',
                 headers: {
+                    "Content-Type": "application/json",
                     Authorization: "Bearer " + getCookieToken(),
                 },
-                body: new_userData
+                body: JSON.stringify({ name, surname, patronymic, email })
             })
                 .then(response => response.json())
                 .then(data => {
@@ -138,6 +129,9 @@ function Profile() {
                                 disabled
                                 setValue={setEmail}
                             />
+                            <p className="text-lg font-[Montserrat] my-4">
+                                ApiKey: {userData?._id}
+                            </p>
                             <div
                                 onClick={updateUserData}
                                 className="px-12 py-4 bg-[#0067E3] rounded-xl text-md cursor-pointer font-[Montserrat] text-white flex justify-center items-center w-fit">
