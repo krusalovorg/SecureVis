@@ -60,6 +60,59 @@ def generate_unique(word, why):
                 return unique
 
 
+@app.route('/user_event', methods=['POST'])
+def user_event():
+    data = request.get_json()
+    id = ObjectId(data.get('id'))
+    current_time = datetime.now()
+    day = current_time.strftime("%d:%m:%Y")  # Форматируем текущую дату в соответствии с требуемым форматом
+
+    user = staff_collection.find_one({"_id": id})
+
+    # Проверяем, есть ли записи на текущий день
+    day_entry = next((entry for entry in user['statistics'] if entry['day'] == day), None)
+
+    if day_entry is None:
+        staff_collection.update_one(
+            {"_id": id},
+            {
+                "$addToSet": {
+                    "statistics": {
+                        "day": day,
+                        "logs": [{
+                            "time_start": current_time.strftime("%d:%m:%Y %H:%M")
+                        }]
+                    }
+                }
+            }
+        )
+    else:
+        # Проверяем, есть ли уже время начала для текущей записи
+        if 'time_end' not in day_entry['logs'][-1]:
+            staff_collection.update_one(
+                {"_id": id, "statistics.day": day},
+                {
+                    "$set": {f"statistics.$.logs.{len(day_entry['logs'])-1}.time_end": current_time.strftime("%d:%m:%Y %H:%M")}
+                }
+            )
+            work_time = round((current_time - datetime.strptime(day_entry['logs'][-1]['time_start'], "%d:%m:%Y %H:%M")).total_seconds())
+            staff_collection.update_one(
+                {"_id": id, "statistics.day": day},
+                {
+                    "$set": {f"statistics.$.logs.{len(day_entry['logs'])-1}.work_time": work_time}
+                }
+            )
+        else:
+            staff_collection.update_one(
+                {"_id": id, "statistics.day": day},
+                {
+                    "$push": {f"statistics.$.logs": {"time_start": current_time.strftime("%d:%m:%Y %H:%M")}}
+                }
+            )
+
+    return "Success"
+
+
 # войти в аккаунт администратора
 @app.route('/login_admin', methods=['POST'])
 def login_admin():
@@ -164,7 +217,7 @@ def register_staff():
             path = os.path.join(app.root_path, 'images', str(org_id))
             if not os.path.exists(path):
                 os.makedirs(path)
-            path = os.path.join(app.root_path, 'images', str(org_id), name+image.filename)
+            path = os.path.join(app.root_path, 'images', str(org_id), name + image.filename)
             image.save(path)
 
             add_to_database(
@@ -312,7 +365,7 @@ def get_enterprises():
     enterprise = enterprises_collection.find_one({"email": get_jwt_identity()})
     if enterprise:
         enterprises = enterprises_collection.find({}, {
-            "password": 0})  # Используйте проекцию, чтобы исключить поле "password"
+            "password": 0})
         serialized_result = json.loads(json.dumps(list(enterprises), default=serialize_object))
         return serialized_result
     return []
