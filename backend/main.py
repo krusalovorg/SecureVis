@@ -2,10 +2,8 @@ import asyncio
 import base64
 import os
 from io import BytesIO
-
 from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
-
 from flask import Flask, request, jsonify
 from pymongo import MongoClient
 from datetime import datetime, timedelta
@@ -386,6 +384,31 @@ def get_enterprises():
         return serialized_result
     return []
 
+
+@app.route('/delete', methods=['POST'])
+def delete_user():
+    data = request.get_json()
+    user_id = data.get('id')
+    user_type = data.get('type')  # Тип пользователя: 'staff' или 'enterprise'
+
+    # Проверяем, является ли пользователь администратором предприятия
+    if enterprises_collection.find_one({"email": get_jwt_identity()}):
+        if user_type == 'staff':
+            result = staff_collection.delete_one({"_id": ObjectId(user_id)})
+            if result.deleted_count == 1:
+                return jsonify({'message': 'User deleted successfully'}), 200
+            else:
+                return jsonify({'message': 'User not found'}), 404
+        elif user_type == 'enterprise':
+            result = enterprises_collection.delete_one({"_id": ObjectId(user_id)})
+            if result.deleted_count == 1:
+                return jsonify({'message': 'Enterprise deleted successfully'}), 200
+            else:
+                return jsonify({'message': 'Enterprise not found'}), 404
+        else:
+            return jsonify({'message': 'Invalid user type'}), 400
+    else:
+        return jsonify({'message': 'Unauthorized'}), 401
 
 def addAdminUser():
     new_user_data = {
