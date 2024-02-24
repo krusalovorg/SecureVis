@@ -26,7 +26,7 @@ async def detect_faces_in_video():
         # Захватите один кадр видео
         ret, frame = video_capture.read()
         # Найдите все лица на кадре и их кодировки
-        face_locations = face_recognition.face_locations(frame)
+        face_locations = face_recognition.face_locations(frame, number_of_times_to_upsample=0, model="cnn")
         unknown_face_encodings = face_recognition.face_encodings(frame, face_locations)
 
         for face_encoding in unknown_face_encodings:
