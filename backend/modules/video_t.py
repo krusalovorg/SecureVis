@@ -19,7 +19,7 @@ async def detect_faces_in_video():
     face_encodings = loadFaces()
 
     # Получите видеопоток с веб-камеры
-    video_capture = cv2.VideoCapture('http://192.168.0.12:8080/video')#0
+    video_capture = cv2.VideoCapture(0)#0
 
 
     while True:
