@@ -386,6 +386,7 @@ def get_enterprises():
 
 
 @app.route('/delete', methods=['POST'])
+@jwt_required()
 def delete_user():
     data = request.get_json()
     user_id = data.get('id')
