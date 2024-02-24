@@ -28,6 +28,14 @@ async def video_receiver(websocket: WebSocketServerProtocol, path):
     await handle_connect(websocket)
 
     if path == '/add':
+        packet = await websocket.recv()
+        for ws in connected.get(json.loads(packet).get("org_id"), []):
+            if ws != websocket:
+                try:
+                    await asyncio.wait_for(ws.send(packet), timeout=3)
+                    print('send', packet)
+                except Exception as e:
+                    print(f"Error sending video to client: {e}")
         pass  # Дополнительная логика для обработки других путей
 
     if path == '/video':

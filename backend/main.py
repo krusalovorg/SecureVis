@@ -1,4 +1,8 @@
+import asyncio
+import base64
 import os
+from io import BytesIO
+
 from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
 
@@ -13,11 +17,13 @@ from bson import ObjectId
 import json
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
+import websockets
 
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = '12221'
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
 jwt = JWTManager(app)
+wsUrl = 'ws://127.0.0.1:5001'
 
 CORS(app)
 
@@ -58,6 +64,59 @@ def generate_unique(word, why):
             if staff_collection.find_one(
                     {'password': unique}) is None:  # Проверяем, существует ли такой логин в базе данных
                 return unique
+
+@app.route('/user_event', methods=['POST'])
+def user_event():
+    data = request.get_json()
+    print('connect',data)
+    id = ObjectId(data.get('id'))
+    current_time = datetime.now()
+    day = current_time.strftime("%d:%m:%Y")  # Форматируем текущую дату в соответствии с требуемым форматом
+
+    user = staff_collection.find_one({"_id": id})
+
+    # Проверяем, есть ли записи на текущий день
+    day_entry = next((entry for entry in user['statistics'] if entry['day'] == day), None)
+
+    if day_entry is None:
+        staff_collection.update_one(
+            {"_id": id},
+            {
+                "$addToSet": {
+                    "statistics": {
+                        "day": day,
+                        "logs": [{
+                            "time_start": current_time.strftime("%d:%m:%Y %H:%M")
+                        }]
+                    }
+                }
+            }
+        )
+    else:
+        # Проверяем, есть ли уже время начала для текущей записи
+        if 'time_end' not in day_entry['logs'][-1]:
+            staff_collection.update_one(
+                {"_id": id, "statistics.day": day},
+                {
+                    "$set": {f"statistics.$.logs.{len(day_entry['logs'])-1}.time_end": current_time.strftime("%d:%m:%Y %H:%M")}
+                }
+            )
+            work_time = round((current_time - datetime.strptime(day_entry['logs'][-1]['time_start'], "%d:%m:%Y %H:%M")).total_seconds())
+            staff_collection.update_one(
+                {"_id": id, "statistics.day": day},
+                {
+                    "$set": {f"statistics.$.logs.{len(day_entry['logs'])-1}.work_time": work_time}
+                }
+            )
+        else:
+            staff_collection.update_one(
+                {"_id": id, "statistics.day": day},
+                {
+                    "$push": {f"statistics.$.logs": {"time_start": current_time.strftime("%d:%m:%Y %H:%M")}}
+                }
+            )
+
+    return "Success"
 
 
 @app.route('/user_event', methods=['POST'])
@@ -165,38 +224,6 @@ def login_user():
         else:
             return jsonify({'message': 'incorrect password'}), 401
 
-
-# пользователю выйти из аккаунта
-@app.route('/logout', methods=['POST'])
-@jwt_required()
-def logout():
-    login = get_jwt_identity()
-    user = staff_collection.find_one({"login": login})
-    if user:
-        current_time = datetime.now()
-        day = current_time.strftime("%d:%m:%Y")  # Форматируем текущую дату в соответствии с требуемым форматом
-
-        # Получаем время начала работы из настроек
-        start_time = datetime.strptime(user['statistics'][day]['time_log'], "%H:%M")
-
-        # Получаем время окончания работы
-        end_time = current_time.strftime("%H:%M")
-
-        # Рассчитываем время работы
-        work_time = (current_time - start_time).seconds // 3600
-
-        # Обновляем настройки пользователя в базе данных
-        update_query = {
-            f"statistics.{day}.time_end": end_time,
-            f"statistics.{day}.work": f"{work_time} hours"
-        }
-        staff_collection.update_one({'login': login}, {'$set': update_query})
-
-        return jsonify({'message': 'Logout successful'}), 200
-    else:
-        return jsonify({'message': 'User not found'}), 404
-
-
 # админа зарегестрировать сотрудника
 @app.route('/staff', methods=['POST'])
 @jwt_required()
@@ -220,22 +247,45 @@ def register_staff():
             path = os.path.join(app.root_path, 'images', str(org_id), name + image.filename)
             image.save(path)
 
-            add_to_database(
-                {'name': name, 'position': position, 'statistics': {},
-                 'timetable': timetable,
-                 'worktime': {
-                     'start': startTime,
-                     'end': endTime
-                 },
-                 'org_id': ObjectId(org_id),
-                 'photo_path': path,
-                 },
-                'staff')
+            user_data = {
+                'name': name,
+                'position': position,
+                'statistics': [],
+                'timetable': timetable,
+                'worktime': {
+                    'start': startTime,
+                    'end': endTime
+                },
+                'org_id': ObjectId(org_id),
+                'photo_path': path,
+            }
+
+            add_to_database(user_data, 'staff')
+
+
+            with open(path, 'rb') as f:
+                image_data = f.read()
+                base64_image = base64.b64encode(image_data).decode('utf-8')
+                print(base64_image)
+                user_data['photo'] = base64_image
+            # Send user data to WebSocket server
+            staff_ = staff_collection.find_one({'photo_path': user_data['photo_path']})
+            user_data['_id'] = str(staff_.get('_id'))
+
+            asyncio.run(send_user_data_to_ws(user_data))
 
             return jsonify({'message': 'User registered successfully'}), 200
 
         else:
             return jsonify({'message': 'no photo in request'}), 200
+
+async def send_user_data_to_ws(user_data):
+    async with websockets.connect(wsUrl + "/add") as websocket:
+        print(user_data, user_data.get('org_id'))
+        await websocket.send((json.dumps({'apiId': str(user_data['org_id'])})))
+        serialized_result = json.dumps(user_data, default=serialize_object)
+        print(serialized_result)
+        await websocket.send(serialized_result)
 
 
 # изменить параметры сотрудника
