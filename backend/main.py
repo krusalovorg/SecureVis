@@ -1,4 +1,8 @@
+import asyncio
+import base64
 import os
+from io import BytesIO
+
 from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
 
@@ -13,11 +17,13 @@ from bson import ObjectId
 import json
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
+import websockets
 
 app = Flask(__name__)
 app.config['JWT_SECRET_KEY'] = '12221'
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
 jwt = JWTManager(app)
+wsUrl = 'ws://127.0.0.1:5001'
 
 CORS(app)
 
@@ -167,22 +173,45 @@ def register_staff():
             path = os.path.join(app.root_path, 'images', str(org_id), name+image.filename)
             image.save(path)
 
-            add_to_database(
-                {'name': name, 'position': position, 'statistics': {},
-                 'timetable': timetable,
-                 'worktime': {
-                     'start': startTime,
-                     'end': endTime
-                 },
-                 'org_id': ObjectId(org_id),
-                 'photo_path': path,
-                 },
-                'staff')
+            user_data = {
+                'name': name,
+                'position': position,
+                'statistics': {},
+                'timetable': timetable,
+                'worktime': {
+                    'start': startTime,
+                    'end': endTime
+                },
+                'org_id': ObjectId(org_id),
+                'photo_path': path,
+            }
+
+            add_to_database(user_data, 'staff')
+
+
+            with open(path, 'rb') as f:
+                image_data = f.read()
+                base64_image = base64.b64encode(image_data).decode('utf-8')
+                print(base64_image)
+                user_data['photo'] = base64_image
+            # Send user data to WebSocket server
+            staff_ = staff_collection.find_one({'photo_path': user_data['photo_path']})
+            user_data['_id'] = str(staff_.get('_id'))
+
+            asyncio.run(send_user_data_to_ws(user_data))
 
             return jsonify({'message': 'User registered successfully'}), 200
 
         else:
             return jsonify({'message': 'no photo in request'}), 200
+
+async def send_user_data_to_ws(user_data):
+    async with websockets.connect(wsUrl + "/add") as websocket:
+        print(user_data, user_data.get('org_id'))
+        await websocket.send((json.dumps({'apiId': str(user_data['org_id'])})))
+        serialized_result = json.dumps(user_data, default=serialize_object)
+        print(serialized_result)
+        await websocket.send(serialized_result)
 
 
 # изменить параметры сотрудника

@@ -5,12 +5,16 @@ import cv2
 import numpy as np
 
 
-def loadFaces(userId):
+def loadFaces():
     # Укажите путь к папке с обучающими изображениями
-    training_folder = f"../userdata/{userId}"
-    encodings_file = f"../userdata/{userId}/model.pkl"
+    training_folder = f"./userdata"
+    encodings_file = f"./userdata/model.pkl"
 
-    if os.path.exists(encodings_file):
+    if not os.path.exists(training_folder):
+        # Если папка не существует, создать её
+        os.makedirs(training_folder)
+
+    if os.path.exists(encodings_file) and False:
         # Если файл существует, загружаем кодировки
         with open(encodings_file, 'rb') as f:
             face_encodings = pickle.load(f)
@@ -18,12 +22,17 @@ def loadFaces(userId):
     else:
         # Если файла нет, загружаем изображения для обучения и получаем кодировки лиц
         image_files = os.listdir(training_folder)
-        face_encodings = []
+        face_encodings = {}
         for image_file in image_files:
-            image = face_recognition.load_image_file(os.path.join(training_folder, image_file))
-            encodings = face_recognition.face_encodings(image)
-            if encodings:
-                face_encodings.append(encodings[0])
+            print('path',os.path.join(training_folder, image_file))
+            if image_file != 'model.pkl':
+                image = face_recognition.load_image_file(os.path.join(training_folder, image_file))
+                encodings = face_recognition.face_encodings(image)
+                print(encodings,os.path.join(training_folder, image_file) )
+                if encodings:
+                    print('save',image_file, encodings)
+                    face_encodings[image_file] = encodings
+        print('face encoding trained', face_encodings)
 
         # Проверяем, существует ли папка для сохранения файла
         if not os.path.exists(training_folder):
@@ -33,6 +42,7 @@ def loadFaces(userId):
         with open(encodings_file, 'wb') as f:
             pickle.dump(face_encodings, f)
         print("Model saved")
+    print('face_encodings',face_encodings)
     return face_encodings
 
 # Функция для поиска лица на фото
@@ -57,7 +67,6 @@ def loadFacesModels(userIds):
     face_encodings = {}
     for userId in userIds:
         # Укажите путь к папке с обучающими изображениями
-        training_folder = f"../userdata/{userId}"
         encodings_file = f"../userdata/{userId}/model.pkl"
 
         if os.path.exists(encodings_file):
@@ -112,8 +121,7 @@ def detect_faces_in_video(userIds, output=None):
     video_capture.release()
     cv2.destroyAllWindows()
 
-if __name__ == '__main__':
+# if __name__ == '__main__':
     # Список пользователей, для которых загружаются модели
-    userIds = ["Egor"]
-    loadFaces(userIds[0])
-    detect_faces_in_video(userIds)
+    # loadFaces(userIds[0])
+    # detect_faces_in_video(userIds)
