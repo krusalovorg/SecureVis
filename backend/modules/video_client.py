@@ -1,4 +1,5 @@
 import asyncio
+import http
 import json
 import os
 
@@ -9,9 +10,16 @@ import face_recognition
 import requests
 import websockets
 
-from backend.modules.face import loadFacesModels, loadFaces
+from backend.modules.face import loadFaces
 
 face_encodings = []
+
+async def post_request(url, data):
+    conn = http.client.HTTPConnection(url)
+    headers = {'Content-type': 'application/json'}
+    conn.request('POST', '/user_event', body=data, headers=headers)
+    response = conn.getresponse()
+    return response.status, response.reason
 
 async def detect_faces_in_video():
     global face_encodings
@@ -25,8 +33,13 @@ async def detect_faces_in_video():
     while True:
         # Захватите один кадр видео
         ret, frame = video_capture.read()
+
+        if frame is None:
+            print("Не удалось получить кадр из видеопотока")
+            continue
+
         # Найдите все лица на кадре и их кодировки
-        face_locations = face_recognition.face_locations(frame, number_of_times_to_upsample=0, model="cnn")
+        face_locations = face_recognition.face_locations(frame, model="mtcnn")
         unknown_face_encodings = face_recognition.face_encodings(frame, face_locations)
 
         for face_encoding in unknown_face_encodings:
@@ -41,7 +54,14 @@ async def detect_faces_in_video():
                         name = userId
 
                         if name != "Unknown":
-                            requests.post("http://127.0.0.1:5000/user_event", json={'id': name.split(".")[0]})
+                            loop = asyncio.get_event_loop()
+                            data = json.dumps({'id': name.split(".")[0]})
+                            url = "127.0.0.1:5000"
+                            try:
+                                status, reason = loop.run_until_complete(post_request(url, data))
+                            except Exception as e:
+                                print(f"An error occurred: {e}")
+                            break
                         break
 
                 # Рисуем прямоугольник вокруг лица и подписываем его именем
