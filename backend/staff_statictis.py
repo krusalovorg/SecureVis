@@ -1,67 +1,67 @@
-import keyboard
-import psutil
-import threading
 import time
+import pygetwindow as gw
+import requests
 
 
-class Keylogger(threading.Thread):
-    def __init__(self):
-        super(Keylogger, self).__init__()
-        self.active_window = None
-        self.keys_pressed = 0
-        self.opened_programs = set()
-        self.start_time = time.time()
-
-    def run(self):
-        while True:
-            self.get_active_window()
-            self.update_opened_programs()
-            print(f"Открытые программы: {self.opened_programs}, Количество нажатых клавиш: {self.keys_pressed}")
-            time.sleep(60)
-
-    def get_active_window(self):
-        try:
-            active_window_id = None
-            if hasattr(psutil, 'sensors_battery'):
-                active_window_id = psutil.Process(psutil.sensors_battery()).parent().pid
-            else:
-                active_window_id = psutil.Process(psutil.Process().pid).parent().pid
-
-            for process in psutil.process_iter():
-                if process.pid == active_window_id:
-                    self.active_window = process.name()
-                    break
-        except (psutil.AccessDenied, psutil.NoSuchProcess):
-            pass
-
-    def update_opened_programs(self):
-        current_time = time.time()
-        current_programs = set()
-        for process in psutil.process_iter():
-            try:
-                if process.create_time() >= self.start_time:
-                    current_programs.add(process.name())
-            except (psutil.AccessDenied, psutil.NoSuchProcess):
-                pass
-
-        new_programs = current_programs - self.opened_programs
-        self.opened_programs.update(new_programs)
+def send_data_to_server(apps, id):
+    url = "http://127.0.0.1:5000/staff_apps"  # Замените на адрес вашего сервера
+    data = {}
+    data['apps'] = apps
+    data['id'] = id
+    print(data)
+    # Отправляем данные на сервер
+    requests.post(url, json=data)
 
 
-def main():
-    keylogger = Keylogger()
-    keylogger.start()
-
-    try:
-        while True:
-            event = keyboard.read_event()
-            if event.event_type == keyboard.KEY_DOWN:
-                keylogger.keys_pressed += 1
-    except KeyboardInterrupt:
-        pass
-
-    keylogger.join()
+# Словарь для хранения времени использования каждого приложения
+apps_usage = {}
 
 
-if __name__ == "__main__":
-    main()
+def record_usage(app_name, start_time):
+    """
+    Записывает время использования приложения в словарь apps_usage.
+    """
+    if app_name in apps_usage:
+        # Если приложение уже есть в словаре, обновляем его время использования
+        apps_usage[app_name] += round(time.time() - start_time)
+    else:
+        # Если приложение новое, добавляем его в словарь
+        apps_usage[app_name] = round(time.time() - start_time)
+
+
+# Основной цикл программы
+active_app = None
+people_id = input("Введите ваш id: ")
+start_time = time.time()
+while True:
+    current_active_window = gw.getActiveWindow()
+    if current_active_window is not None:
+        # Получаем название активного окна
+        new_app = current_active_window.title
+
+        # Проверяем, отличается ли активное окно от предыдущего
+        if new_app != active_app:
+            # Если да, записываем время использования предыдущего приложения
+            if active_app is not None:
+                if ' - ' in active_app:
+                    active_app = active_app.split(' - ')[1]
+                elif ' – ' in active_app:
+                    active_app = active_app.split(' – ')[1]
+                record_usage(active_app, start_time)
+
+            # Обновляем активное окно и время начала использования
+            active_app = new_app
+            start_time = time.time()
+            print(apps_usage)
+            send_data_to_server(apps_usage, people_id)
+
+    # Ждем некоторое время перед следующей проверкой
+    time.sleep(1)
+
+    # Выход из цикла по вводу 'exit'
+    if active_app == 'exit':
+        break
+
+# Записываем время использования последнего приложения перед выходом
+if active_app is not None:
+    record_usage(active_app, start_time)

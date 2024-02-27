@@ -64,6 +64,51 @@ def generate_unique(word, why):
                 return unique
 
 
+@app.route('/staff_apps', methods=['POST'])
+def staff_apps():
+    data = request.json  # Получаем данные из запроса
+    print(data)  # Выводим полученные данные в консоль
+
+    # Извлекаем необходимые данные из запроса
+    staff_id = data.get('id')
+    apps = data.get('apps')
+
+    # Проверяем, есть ли сотрудник с таким ID
+    staff = staff_collection.find_one({"_id": ObjectId(staff_id)})
+    if staff:
+        # Получаем текущую дату
+        current_date = datetime.now().strftime("%d:%m:%Y")
+
+        # Проверяем, есть ли записи на текущий день в статистике
+        if "statistics" not in staff or not any(entry.get('day') == current_date for entry in staff['statistics']):
+            return jsonify({'message': 'No statistics available for today'}), 404
+
+        # Получаем статистику для текущего дня
+        statistics_today = next(entry for entry in staff['statistics'] if entry.get('day') == current_date)
+
+        # Получаем словарь приложений на текущий день
+        apps_today = statistics_today.get('apps', {})
+
+        # Обновляем или добавляем время для каждого приложения из списка apps
+        for app_name, app_time in apps.items():
+            # Обновляем время приложения или добавляем новое приложение
+            apps_today[app_name] = app_time
+
+        # Обновляем статистику в базе данных
+        staff_collection.update_one(
+            {"_id": ObjectId(staff_id), "statistics.day": current_date},
+            {
+                "$set": {
+                    "statistics.$.apps": apps_today
+                }
+            }
+        )
+
+        return jsonify({'message': 'Apps added/updated in staff statistics successfully'}), 200
+    else:
+        return jsonify({'message': 'Staff not found'}), 404
+
+
 @app.route('/user_event', methods=['POST'])
 def user_event():
     data = request.get_json()
@@ -410,6 +455,7 @@ def delete_user():
             return jsonify({'message': 'Invalid user type'}), 400
     else:
         return jsonify({'message': 'Unauthorized'}), 401
+
 
 def addAdminUser():
     new_user_data = {
