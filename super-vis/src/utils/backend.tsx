@@ -79,6 +79,7 @@ export type Staff = {
     name: string;
     position: string;
     _id: string;
+    statistics: any[];
 }
 
 export const getStaffs = async ({org_id}: {org_id: string}) => {

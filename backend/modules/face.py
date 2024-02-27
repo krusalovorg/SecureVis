@@ -27,7 +27,7 @@ def loadFaces():
             print('path',os.path.join(training_folder, image_file))
             if image_file != 'model.pkl':
                 image = face_recognition.load_image_file(os.path.join(training_folder, image_file))
-                encodings = face_recognition.face_encodings(image)
+                encodings = face_recognition.face_encodings(image, model="large")
                 print(encodings,os.path.join(training_folder, image_file) )
                 if encodings:
                     print('save',image_file, encodings)

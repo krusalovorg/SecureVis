@@ -5,7 +5,7 @@ import UserContext from "../contexts/UserContext";
 import { Card, Typography } from "@material-tailwind/react";
 
 const TABLE_HEAD = [
-    "ФИО", "Должность", "id", "Действие"
+    "ФИО", "Должность", "Время работы (День)", "id", "Действие"
 ]
 
 const days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Вс", "Сб"]
@@ -239,10 +239,10 @@ function StaffPage() {
                             </thead>
                             <tbody>
                                 {staffList && staffList.length > 0 &&
-                                    staffList.map(({ name, position, _id }, index) => {
+                                    staffList.map(({ name, position, _id, statistics }, index) => {
                                         const isLast = index === staffList.length - 1;
                                         const classes = isLast ? "p-4" : "p-4 border-b border-blue-gray-50";
-
+                                        const time = statistics[statistics.length-1].total_work_time
                                         return (
                                             <tr key={name}>
                                                 <td className={classes}>
@@ -250,6 +250,9 @@ function StaffPage() {
                                                 </td>
                                                 <td className={classes}>
                                                     {position}
+                                                </td>
+                                                <td className={classes}>
+                                                    {(time/60).toFixed(1)} минут
                                                 </td>
                                                 <td className={classes}>
                                                     {_id}
