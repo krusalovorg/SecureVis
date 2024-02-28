@@ -72,112 +72,148 @@ def staff_apps():
     # Извлекаем необходимые данные из запроса
     staff_id = data.get('id')
     apps = data.get('apps')
-
-    # Проверяем, есть ли сотрудник с таким ID
-    staff = staff_collection.find_one({"_id": ObjectId(staff_id)})
-    if staff:
-        # Получаем текущую дату
-        current_date = datetime.now().strftime("%d:%m:%Y")
-
-        # Проверяем, есть ли записи на текущий день в статистике
-        if "statistics" not in staff or not any(entry.get('day') == current_date for entry in staff['statistics']):
-            return jsonify({'message': 'No statistics available for today'}), 404
-
-        # Получаем статистику для текущего дня
-        statistics_today = next(entry for entry in staff['statistics'] if entry.get('day') == current_date)
-
-        # Получаем словарь приложений на текущий день
-        apps_today = statistics_today.get('apps', {})
-
-        # Обновляем или добавляем время для каждого приложения из списка apps
-        for app_name, app_time in apps.items():
-            # Обновляем время приложения или добавляем новое приложение
-            apps_today[app_name] = app_time
-
-        # Обновляем статистику в базе данных
-        staff_collection.update_one(
-            {"_id": ObjectId(staff_id), "statistics.day": current_date},
-            {
-                "$set": {
-                    "statistics.$.apps": apps_today
-                }
-            }
-        )
-
-        return jsonify({'message': 'Apps added/updated in staff statistics successfully'}), 200
+    if staff_id == '':
+        if 'file' in request.files:
+            file = request.files['file']
+            if file.filename != '':
+                filename = file.filename
+                path = os.path.join(app.root_path, 'images', 'unknown', filename)
+                file.save(path)
+                photo_path = path
+                data = {"name": generate_unique('unknown', 'login'), "statistics": [], "photo_path": photo_path}
+        else:
+            data = {"name": generate_unique('unknown', 'login'), "statistics": [], "photo_path": None}
+        add_to_database(data, 'staff')
+        return 'Succes'
     else:
-        return jsonify({'message': 'Staff not found'}), 404
+        # Проверяем, есть ли сотрудник с таким ID
+        staff = staff_collection.find_one({"_id": ObjectId(staff_id)})
+        if staff:
+            # Получаем текущую дату
+            current_date = datetime.now().strftime("%d:%m:%Y")
+
+            # Проверяем, есть ли записи на текущий день в статистике
+            if "statistics" not in staff or not any(entry.get('day') == current_date for entry in staff['statistics']):
+                return jsonify({'message': 'No statistics available for today'}), 404
+
+            # Получаем статистику для текущего дня
+            statistics_today = next(entry for entry in staff['statistics'] if entry.get('day') == current_date)
+
+            # Получаем словарь приложений на текущий день
+            apps_today = statistics_today.get('apps', {})
+            # Обновляем или добавляем время для каждого приложения из списка apps
+            for app_name, app_time in apps.items():
+                # Обновляем время приложения или добавляем новое приложение
+                apps_today[app_name] = app_time
+
+            # Обновляем статистику в базе данных
+            staff_collection.update_one(
+                {"_id": ObjectId(staff_id), "statistics.day": current_date},
+                {
+                    "$set": {
+                        "statistics.$.apps": apps_today
+                    }
+                }
+            )
+
+            return jsonify({'message': 'Apps added/updated in staff statistics successfully'}), 200
+        else:
+            return jsonify({'message': 'Staff not found'}), 404
 
 
 @app.route('/user_event', methods=['POST'])
 def user_event():
     data = request.get_json()
     print('connect', data)
-    id = ObjectId(data.get('id'))
     current_time = datetime.now()
-    day = current_time.strftime("%d:%m:%Y")  # Форматируем текущую дату в соответствии с требуемым форматом
-
-    user = staff_collection.find_one({"_id": id})
-
-    # Проверяем, есть ли записи на текущий день
-    day_entry = next((entry for entry in user['statistics'] if entry['day'] == day), None)
-
-    if day_entry is None:
-        staff_collection.update_one(
-            {"_id": id},
-            {
-                "$addToSet": {
-                    "statistics": {
-                        "day": day,
-                        "total_work_time": 0,
-                        "logs": [{
-                            "time_start": current_time.strftime("%H:%M:%S")
-                        }]
-                    }
-                }
-            }
-        )
+    day = current_time.strftime("%d:%m:%Y")  # Format the current date
+    id = data.get('id')
+    if id == '':
+        if 'file' in request.files:
+            file = request.files['file']
+            if file.filename != '':
+                filename = file.filename
+                path = os.path.join(app.root_path, 'images', 'unknown', filename)
+                file.save(path)
+                photo_path = path
+                data = {"name": generate_unique('unknown', 'login'), "statistics": [], "photo_path": photo_path}
+            add_to_database(data, 'staff')
+            return "Success"
+        else:
+            data = {"name": generate_unique('unknown', 'login'), "statistics": [], "photo_path": None}
+            add_to_database(data, 'staff')
+            return "Success"
     else:
-        # Проверяем, есть ли уже время начала для текущей записи
-        if 'time_end' not in day_entry['logs'][-1]:
-            staff_collection.update_one(
-                {"_id": id, "statistics.day": day},
-                {
-                    "$set": {
-                        f"statistics.$.logs.{len(day_entry['logs']) - 1}.time_end": current_time.strftime("%H:%M:%S")}
-                }
-            )
-            # Преобразование времени начала и окончания работы в секунды
-            time_start = datetime.strptime(day_entry['logs'][-1]['time_start'], "%H:%M:%S")
-            time_end = datetime.strptime(current_time.strftime("%H:%M:%S"), "%H:%M:%S")
+        id = ObjectId(id)
+        user = staff_collection.find_one({"_id": id})
+        # Handle file upload if present in requests
+        photo_path = None
+        if 'file' in request.files:
+            file = request.files['file']
+            if file.filename != '':
+                filename = file.filename
+                path = os.path.join(app.root_path, 'images', str(user['org_id']), filename)
+                file.save(path)
+                photo_path = path
 
-            # Вычисление разницы времени в секундах
-            work_time_seconds = (time_end - time_start).total_seconds()
+        # Continue with your existing logic
+        day_entry = next((entry for entry in user['statistics'] if entry['day'] == day), None)
 
-            # Обновляем общее время работы за день
-            total_work_day = day_entry.get('total_work_time', 0)
-            total_work_day += work_time_seconds
+        if day_entry is None:
             staff_collection.update_one(
-                {"_id": id, "statistics.day": day},
+                {"_id": id},
                 {
-                    "$set": {f"statistics.$.total_work_time": total_work_day}
-                }
-            )
-
-            staff_collection.update_one(
-                {"_id": id, "statistics.day": day},
-                {
-                    "$set": {f"statistics.$.logs.{len(day_entry['logs']) - 1}.work_time": work_time_seconds}
+                    "$addToSet": {
+                        "statistics": {
+                            "day": day,
+                            "total_work_time": 0,
+                            "logs": [{
+                                "time_start": current_time.strftime("%H:%M:%S"),
+                                "start_photo_path": photo_path
+                            }]
+                        }
+                    }
                 }
             )
         else:
-            staff_collection.update_one(
-                {"_id": id, "statistics.day": day},
-                {
-                    "$push": {f"statistics.$.logs": {"time_start": current_time.strftime("%H:%M:%S")}}
-                }
-            )
-    return "Success"
+            if 'time_end' not in day_entry['logs'][-1]:
+                staff_collection.update_one(
+                    {"_id": id, "statistics.day": day},
+                    {
+                        "$set": {
+                            f"statistics.$.logs.{len(day_entry['logs']) - 1}.time_end": current_time.strftime(
+                                "%H:%M:%S"),
+                            f"statistics.$.logs.{len(day_entry['logs']) - 1}.end_photo_path": photo_path
+                        }
+                    }
+                )
+                time_start = datetime.strptime(day_entry['logs'][-1]['time_start'], "%H:%M:%S")
+                time_end = datetime.strptime(current_time.strftime("%H:%M:%S"), "%H:%M:%S")
+                work_time_seconds = (time_end - time_start).total_seconds()
+                total_work_day = day_entry.get('total_work_time', 0)
+                total_work_day += work_time_seconds
+                staff_collection.update_one(
+                    {"_id": id, "statistics.day": day},
+                    {
+                        "$set": {f"statistics.$.total_work_time": total_work_day}
+                    }
+                )
+
+                staff_collection.update_one(
+                    {"_id": id, "statistics.day": day},
+                    {
+                        "$set": {f"statistics.$.logs.{len(day_entry['logs']) - 1}.work_time": work_time_seconds}
+                    }
+                )
+            else:
+                staff_collection.update_one(
+                    {"_id": id, "statistics.day": day},
+                    {
+                        "$push": {f"statistics.$.logs": {"time_start": current_time.strftime("%H:%M:%S"),
+                                                         "start_photo_path": photo_path}}
+                    }
+                )
+        return "Success"
 
 
 # войти в аккаунт администратора
