@@ -110,7 +110,7 @@ async def detect_faces_in_video():
     cv2.destroyAllWindows()
 
 
-async def video_sender(uri):
+async def video_sender(apiId, uri):
     global websocket_client
 
     async with websockets.connect(uri + "/video") as websocket:

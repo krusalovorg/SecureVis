@@ -8,6 +8,9 @@ import PenWrite from '../icons/PenWrite';
 import CameraIcon from '../icons/CameraIcon';
 import { useContext } from 'react';
 import UserContext from '../contexts/UserContext';
+import StaffIcon from '../icons/StaffIcon';
+import LogsIcon from '../icons/LogsIcon';
+import EnterpriseIcon from '../icons/EnterpriseIcon';
 
 function VerticalHeader({ children }: any) {
     const navigate = useNavigate();
@@ -26,10 +29,13 @@ function VerticalHeader({ children }: any) {
                 {
                     userData?.type == 'admin' &&
                     <div onClick={() => navigate("/enterprises")} className={`p-[20px] rounded-full cursor-pointer ${url == '/enterprises' ? 'text-white bg-[#0067E3]' : 'text-black'}`} >
-                    <CameraIcon />
+                    <EnterpriseIcon />
                 </div>}
                 <div onClick={() => navigate("/staff")} className={`p-[20px] rounded-full cursor-pointer ${url == '/staff' ? 'text-white bg-[#0067E3]' : 'text-black'}`} >
-                    <CameraIcon />
+                    <StaffIcon />
+                </div>
+                <div onClick={() => navigate("/logs")} className={`p-[20px] rounded-full cursor-pointer ${url == '/logs' ? 'text-white bg-[#0067E3]' : 'text-black'}`} >
+                    <LogsIcon />
                 </div>
                 <div onClick={() => logout()} className={`p-[20px] rounded-full cursor-pointer mt-auto mb-2 text-black`} >
                     <Logout />

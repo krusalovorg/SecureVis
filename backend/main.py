@@ -90,7 +90,7 @@ def staff_apps():
         staff = staff_collection.find_one({"_id": ObjectId(staff_id)})
         if staff:
             # Получаем текущую дату
-            current_date = datetime.now().strftime("%d:%m:%Y")
+            current_date = datetime.now().strftime("%d.%m.%Y")
 
             # Проверяем, есть ли записи на текущий день в статистике
             if "statistics" not in staff or not any(entry.get('day') == current_date for entry in staff['statistics']):
@@ -133,7 +133,7 @@ def user_event():
     data = request.get_json()
     print('connect', data)
     current_time = datetime.now()
-    day = current_time.strftime("%d:%m:%Y")  # Format the current date
+    day = current_time.strftime("%d.%m.%Y")  # Format the current date
     id = data.get('id')
     if id != '':
         id = ObjectId(id)

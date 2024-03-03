@@ -10,6 +10,7 @@ import User from './contexts/UserContext';
 import Camera from './pages/Camera';
 import Enterprises from './pages/Enterprises';
 import Staff from './pages/Staff';
+import LogsPage from './pages/Logs';
 
 function RouterNav() {
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -46,6 +47,7 @@ function RouterNav() {
                                     <Route path='/camera' element={<Camera />} />
                                     <Route path='/enterprises' element={<Enterprises />} />
                                     <Route path='/staff' element={<Staff />} />
+                                    <Route path='/logs' element={<LogsPage />} />
                                 </Routes>
                             </VerticalHeader>
                         </User.Provider>

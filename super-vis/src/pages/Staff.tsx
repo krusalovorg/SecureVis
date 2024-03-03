@@ -167,7 +167,7 @@ function StaffPage() {
         <div className="w-full h-full flex justify-center align-center">
             <div className="w-full pb-[100px] h-fit">
                 <div style={{height: 68}}></div>
-                <div className="w-[90%] h-fit bg-[#F5FAFD] rounded-3xl relative m-auto">
+                <div className="w-[90%] pb-[55px] h-fit bg-[#F5FAFD] rounded-3xl relative m-auto">
                     <div className="w-full bg-white h-[80px] rounded-t-3xl flex flex-row items-center px-5 mb-5">
                         <div className="ml-5 gap-2">
                             <h1 className={`text-xl text-black font-[Montserrat]`}>
@@ -308,8 +308,8 @@ function StaffPage() {
                                                     {last_log?.time_end}
                                                 </td>
                                                 <td className={classes}>
-                                                    <img src={URL_SERVER + "/image/" + last_log?.start_photo_path}/>
-                                                    <img src={URL_SERVER + "/image/" + last_log?.end_photo_path}/>
+                                                    <img className="inline-flex" src={URL_SERVER + "/image/" + last_log?.start_photo_path}/>
+                                                    <img className="inline-flex" src={URL_SERVER + "/image/" + last_log?.end_photo_path}/>
                                                 </td>
                                                 <td className={classes}>
                                                     {_id}
