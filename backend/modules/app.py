@@ -31,20 +31,14 @@ class MyApp(QWidget):
         self.initUI()
 
     def initUI(self):
-        self.label = QLabel('Enter API ID:', self)
+        self.label = QLabel('API ID:', self)
         self.line_edit = QLineEdit(self)
 
-        self.label_ws = QLabel('Enter WS Url:', self)
+        self.label_ws = QLabel('WS Url:', self)
         self.line_edit_ws = QLineEdit(self)
 
-        self.button = QPushButton('Submit', self)
+        self.button = QPushButton('Подключиться к серверу', self)
         self.button.clicked.connect(self.submit)
-
-        self.start_button = QPushButton('Start', self)
-        self.start_button.clicked.connect(self.start)
-
-        self.stop_button = QPushButton('Stop', self)
-        self.stop_button.clicked.connect(self.stop)
 
         layout = QVBoxLayout()
         layout.addWidget(self.label)
@@ -54,9 +48,6 @@ class MyApp(QWidget):
         layout.addWidget(self.line_edit_ws)
 
         layout.addWidget(self.button)
-
-        layout.addWidget(self.start_button)
-        layout.addWidget(self.stop_button)
 
         self.setLayout(layout)
 
@@ -74,16 +65,6 @@ class MyApp(QWidget):
         self.worker.start()
 
         self.save_data()
-
-    def start(self):
-        apiId = self.line_edit.text()
-        self.worker = Worker(apiId)
-        self.worker.finished.connect(self.on_finished)
-        self.worker.start()
-
-    def stop(self):
-        if self.worker:
-            self.worker.stop()
 
     def on_finished(self):
         print('Finished')

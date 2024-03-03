@@ -172,7 +172,7 @@ def user_event():
                 }
             )
         else:
-            if 'time_end' not in day_entry['logs'][-1]:
+            if 'time_end' not in day_entry.get('logs',[])[-1]:
                 staff_collection.update_one(
                     {"_id": id, "statistics.day": day},
                     {

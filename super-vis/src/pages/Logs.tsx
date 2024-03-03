@@ -79,12 +79,18 @@ function LogsPage() {
                                 let dateEnd = new Date('1970-01-01T' + item.time_end + 'Z');
                                 let diff = dateEnd.getTime() - dateStart.getTime();
                                 diff = Math.floor(diff / 1000 / 60);
-                            
+
                                 return (
                                     <div key={index}>
-                                        {item.time_end}: Вышел. Проработал: {diff}~ минут. {item.name} {item._id}
-                                        <br/>
-                                        {item.time_start}: Вошел {item.name} {item._id}
+                                        {item.time_end ?
+                                            <>
+                                                {`${item.time_end}: ${item.name} Вышел. Проработал: ${diff}~ минут. ${item.name} ${item._id}`}
+                                                <img className="inline-flex ml-2 ronded-base" src={URL_SERVER + "/image/" + item?.end_photo_path} />
+                                            </>
+                                            : ''}
+                                        <br />
+                                        {item.time_start}: {item.name} вошел ID: {item._id}
+                                        <img className="inline-flex ml-2 ronded-base" src={URL_SERVER + "/image/" + item?.start_photo_path} />
                                     </div>
                                 );
                             })}
