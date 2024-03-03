@@ -51,9 +51,8 @@ class ThreadedCamera(object):
             if self.capture.isOpened():
                 (self.status, self.frame) = self.capture.read()
                 if not self.status:
-                    # Video has ended, reopen the video stream
                     self.capture.release()
-                    self.capture = cv2.VideoCapture(self.source)  # Change the source as needed
+                    self.capture = cv2.VideoCapture(self.source)
                 time.sleep(self.FPS)
 
     def release(self):
