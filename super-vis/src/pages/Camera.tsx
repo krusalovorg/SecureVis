@@ -43,9 +43,9 @@ function Camera() {
             };
 
             // Clean up when component unmounts
-            // return () => {
-            //   socket.close();
-            // };
+            return () => {
+              socket.close();
+            };
         }
     }, [userData]);
 

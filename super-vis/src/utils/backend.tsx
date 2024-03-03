@@ -80,9 +80,14 @@ export type Staff = {
     position: string;
     _id: string;
     statistics: any[];
+    timetable: string[];
+    worktime: {
+        startTime: string;
+        endTime: string;
+    }
 }
 
-export const getStaffs = async ({org_id}: {org_id: string}) => {
+export const getStaffs = async ({ org_id }: { org_id: string }) => {
     try {
         const response = await fetch(URL_SERVER + "/staffs", {
             method: "GET",

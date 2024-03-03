@@ -1,10 +1,11 @@
 import asyncio
 import base64
 import os
+import time
 from io import BytesIO
-from gevent.pywsgi import WSGIServer
-from geventwebsocket.handler import WebSocketHandler
-from flask import Flask, request, jsonify
+
+from PIL import Image
+from flask import Flask, request, jsonify, send_file
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 import string
@@ -14,7 +15,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from bson import ObjectId
 import json
 from flask_cors import CORS
-from flask_socketio import SocketIO, emit
 import websockets
 
 app = Flask(__name__)
@@ -120,6 +120,13 @@ def staff_apps():
         else:
             return jsonify({'message': 'Staff not found'}), 404
 
+@app.route('/image/<org_id>/<image_name>', methods=['GET'])
+def send_image(org_id, image_name):
+    image_path = os.path.join(app.root_path, 'userdata', org_id, image_name)
+    if os.path.exists(image_path):
+        return send_file(image_path, mimetype='image/jpeg')
+    else:
+        return "Файл не найден", 404
 
 @app.route('/user_event', methods=['POST'])
 def user_event():
@@ -128,33 +135,22 @@ def user_event():
     current_time = datetime.now()
     day = current_time.strftime("%d:%m:%Y")  # Format the current date
     id = data.get('id')
-    if id == '':
-        if 'file' in request.files:
-            file = request.files['file']
-            if file.filename != '':
-                filename = file.filename
-                path = os.path.join(app.root_path, 'images', 'unknown', filename)
-                file.save(path)
-                photo_path = path
-                data = {"name": generate_unique('unknown', 'login'), "statistics": [], "photo_path": photo_path}
-            add_to_database(data, 'staff')
-            return "Success"
-        else:
-            data = {"name": generate_unique('unknown', 'login'), "statistics": [], "photo_path": None}
-            add_to_database(data, 'staff')
-            return "Success"
-    else:
+    if id != '':
         id = ObjectId(id)
         user = staff_collection.find_one({"_id": id})
         # Handle file upload if present in requests
         photo_path = None
-        if 'file' in request.files:
-            file = request.files['file']
-            if file.filename != '':
-                filename = file.filename
-                path = os.path.join(app.root_path, 'images', str(user['org_id']), filename)
-                file.save(path)
-                photo_path = path
+        if 'image' in data:
+            image_data = base64.b64decode(data.get("image"))
+            image = Image.open(BytesIO(image_data))
+            filename = f"{user.get('name')}{str(time.time()).replace('.', '')}.jpg"
+            dir_path = os.path.join('userdata', str(user['org_id']))
+            # Проверка наличия каталога и создание его при необходимости
+            os.makedirs(dir_path, exist_ok=True)
+            path = os.path.join(dir_path, filename)
+            print(path)
+            image.save(path, 'JPEG')
+            photo_path = str(user['org_id']) + '/' + filename
 
         # Continue with your existing logic
         day_entry = next((entry for entry in user['statistics'] if entry['day'] == day), None)
@@ -337,14 +333,13 @@ async def send_user_data_to_ws(user_data):
 @app.route('/staff', methods=['PUT'])
 @jwt_required()
 def update_staff():
-    data = request.get_json()
+    data = request.form
     updated_fields = {}
     # Обновляем только поля, которые были переданы
     for key in data:
         updated_fields[key] = data[key]
 
     # Удаляем поля, которые не нужно обновлять
-
     if request.files.get("face") != None:
         image = request.files['face']
 
@@ -358,6 +353,7 @@ def update_staff():
         updated_fields.pop('login', None)
         updated_fields.pop('password', None)
         updated_fields['photo_path'] = path
+
     staff_collection.update_one({'_id': ObjectId(data.get('id'))}, {'$set': updated_fields})
     return jsonify({'message': 'Staff updated successfully'}), 200
 

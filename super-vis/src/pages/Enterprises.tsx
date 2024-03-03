@@ -18,6 +18,9 @@ function Enterprises() {
     const [email, setEmail] = useState('');
     const [result, setResult] = useState('');
 
+    const [edit, setEdit] = useState(false);
+    const [id, setId] = useState<null | string>(null);
+
     const [errors, setErrors] = useState({
         name: '',
         email: '',
@@ -25,7 +28,7 @@ function Enterprises() {
     });
 
     const checkErrors = () => {
-        const fields = { name, email, password };
+        const fields = { name, email, ...(edit ? {} : {password}) };
         let error = false;
         let errors_res = errors;
         for (const field in fields) {
@@ -72,14 +75,42 @@ function Enterprises() {
         }
     }
 
+
+    async function editOrg() {
+        const errors = checkErrors();
+        if (!errors) {
+            fetch(URL_SERVER + '/enterprise', {
+                method: 'PUT',
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: "Bearer " + getCookieToken(),
+                },
+                body: JSON.stringify({
+                    email, name, ...(password ? {password} : {}), id
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('User add successfully:', data);
+                    setResult(data?.message)
+                    document.location.reload()
+                })
+                .catch(error => {
+                    console.error('Error add user:', error);
+                });
+        }
+    }
+
+
     useEffect(() => {
         loadEnterprises()
     }, [])
 
     return (
         <div className="w-full h-full flex justify-center align-center">
-            <div className="w-full h-full flex justify-center items-center">
-                <div className="w-[90%] h-[90%] bg-[#F5FAFD] rounded-3xl relative">
+            <div className="w-full pb-[100px] h-fit">
+                <div style={{height: 68}}></div>
+                <div className="w-[90%] h-fit bg-[#F5FAFD] rounded-3xl relative m-auto">
                     <div className="w-full bg-white h-[80px] rounded-t-3xl flex flex-row items-center px-5 mb-5">
                         <div className="ml-5 gap-2">
                             <h1 className={`text-xl text-black font-[Montserrat]`}>
@@ -112,9 +143,9 @@ function Enterprises() {
                             setValue={setPassword}
                         />
                         <div
-                            onClick={addOrg}
+                            onClick={edit ? editOrg : addOrg}
                             className="px-12 py-4 bg-[#0067E3] rounded-xl text-md cursor-pointer font-[Montserrat] text-white flex justify-center items-center w-fit">
-                            Добавить
+                            {edit ? "Сохранить" : "Добавить"}
                         </div>
                         <a>
                             {result}
@@ -154,6 +185,8 @@ function Enterprises() {
                                                         onClick={() => {
                                                             setEmail(email)
                                                             setName(name)
+                                                            setEdit(true)
+                                                            setId(_id)
                                                         }}
                                                         className="px-8 py-2 bg-[#0067E3] rounded-xl text-md cursor-pointer font-[Montserrat] text-white flex justify-center items-center w-fit">
                                                         Изменить

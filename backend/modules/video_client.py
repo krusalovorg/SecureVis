@@ -1,7 +1,9 @@
 import asyncio
 import http
+import io
 import json
 import os
+import time
 
 import cv2
 import base64
@@ -9,22 +11,32 @@ import base64
 import face_recognition
 import requests
 import websockets
+from PIL import Image
+import aiohttp
 
 from backend.modules.face import loadFaces
 
 face_encodings = []
 
-async def post_request(url, data):
-    conn = http.client.HTTPConnection(url)
+async def post_request(url, data, image=None):
     headers = {'Content-type': 'application/json'}
-    conn.request('POST', '/user_event', body=data, headers=headers)
-    response = conn.getresponse()
-    return response.status, response.reason
+    if image is not None:
+        # Кодируем изображение в base64 и добавляем его в данные
+        buffered = io.BytesIO()
+        image.save(buffered, format="JPEG")
+        img_str = base64.b64encode(buffered.getvalue())
+        data['image'] = img_str.decode('utf-8')
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, data=json.dumps(data), headers=headers) as response:
+            return response.status, await response.text()
 
 async def detect_faces_in_video():
     global face_encodings
     # Загрузите изображение и получите его кодировку
     face_encodings = loadFaces()
+    last_detection_times = {}
+    detection_interval = 10  # время в секундах
 
     # Получите видеопоток с веб-камеры
     video_capture = cv2.VideoCapture(0)#0
@@ -52,17 +64,27 @@ async def detect_faces_in_video():
                     # Если есть совпадение, используем первое совпадение
                     if True in matches:
                         name = userId
-
-                        if name != "Unknown":
+                        if name != "Unknown" and (not last_detection_times.get(name, False) or time.time() - last_detection_times.get(name, 0) > detection_interval):
+                            print('asadasdadasdasd')
+                            last_detection_times[name] = time.time()
                             loop = asyncio.get_event_loop()
-                            data = json.dumps({'id': name.split(".")[0]})
-                            url = "127.0.0.1:5000"
+                            url = "http://127.0.0.1:5000/user_event"
+                            top, right, bottom, left = face_locations[0]
+                            face_image = frame[top:bottom, left:right]
+                            pil_image = Image.fromarray(face_image)
+                            # Отправляем изображение на сервер
+                            data = {'id': name.split(".")[0]}
                             try:
-                                status, reason = loop.run_until_complete(post_request(url, data))
+                                task = asyncio.create_task(post_request(url, data, image=pil_image))
                             except Exception as e:
                                 print(f"An error occurred: {e}")
                             break
+                        else:
+                            # Если лицо обнаружено, но не прошло 2 секунды с момента последнего обнаружения, обновляем таймер
+                            last_detection_times[name] = time.time()
                         break
+                        #if last_detection_times.get(name, 0) > 0:
+                        #   last_detection_times[name] = time.time()
 
                 # Рисуем прямоугольник вокруг лица и подписываем его именем
                 top, right, bottom, left = face_locations[0]
@@ -131,7 +153,8 @@ async def receive_video(websocket):
 
             face_encodings = loadFaces()
 
-apiId = "65d9aa434419fb3469da9ce5"
-wsUrl = 'ws://127.0.0.1:5001'
+if __name__ == '__main__':
+    apiId = "65d9aa434419fb3469da9ce5"
+    wsUrl = 'ws://127.0.0.1:5001'
 
-asyncio.run(video_sender(wsUrl))
+    asyncio.run(video_sender(wsUrl))

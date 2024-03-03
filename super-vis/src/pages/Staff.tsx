@@ -5,7 +5,7 @@ import UserContext from "../contexts/UserContext";
 import { Card, Typography } from "@material-tailwind/react";
 
 const TABLE_HEAD = [
-    "ФИО", "Должность", "Время работы (День)", "id", "Действие"
+    "ФИО", "Должность", "Время работы (День)", "Начал работу", "Закончил работу", "Камера", "id", "Действие"
 ]
 
 const days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Вс", "Сб"]
@@ -32,6 +32,9 @@ function StaffPage() {
         email: '',
         position: '',
     });
+
+    const [edit, setEdit] = useState(false);
+    const [id, setId] = useState<null | string>(null);
 
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files: any = e.target.files;
@@ -117,14 +120,54 @@ function StaffPage() {
         }
     }
 
+    async function editOrg() {
+        const errors = checkErrors();
+        if (!errors) {
+            const fields = { name, position, startTime, endTime };
+            const new_userData = new FormData();
+            for (const field in fields) {
+                const value = (fields as any)[field];
+                console.log(value, (userData as any)[field], field)
+                if (value != (userData as any)[field] && value.length > 0) {
+                    new_userData.append(field, value);
+                }
+            }
+
+            new_userData.append('timetable', JSON.stringify(timetable))
+
+            if (file) {
+                new_userData.append('face', file, file.name);
+            }
+            new_userData.append('id', id+'');
+
+            fetch(URL_SERVER + '/staff', {
+                method: 'PUT',
+                headers: {
+                    Authorization: "Bearer " + getCookieToken(),
+                },
+                body: new_userData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('User updated successfully:', data);
+                    window.location.reload();
+                })
+                .catch(error => {
+                    console.error('Error updating user:', error);
+                });
+        }
+    }
+
+
     useEffect(() => {
         loadStaffs()
     }, [userData])
 
     return (
         <div className="w-full h-full flex justify-center align-center">
-            <div className="w-full h-full flex justify-center items-center">
-                <div className="w-[90%] h-[90%] bg-[#F5FAFD] rounded-3xl relative">
+            <div className="w-full pb-[100px] h-fit">
+                <div style={{height: 68}}></div>
+                <div className="w-[90%] h-fit bg-[#F5FAFD] rounded-3xl relative m-auto">
                     <div className="w-full bg-white h-[80px] rounded-t-3xl flex flex-row items-center px-5 mb-5">
                         <div className="ml-5 gap-2">
                             <h1 className={`text-xl text-black font-[Montserrat]`}>
@@ -162,11 +205,11 @@ function StaffPage() {
                             <div className="flex flex-col ml-4">
                                 <p className="mb-2 text-md font-[Montserrat]">Конец</p>
                                 <input
-                                onChange={(e)=>{
-                                    setEndTime(e.target.value)
-                                }}
-                                value={endTime}
-                                className="w-fit px-6 bg-white h-[70px] shadow-md rounded-xl flex flex-row justify-center items-center" type={"time"} />
+                                    onChange={(e) => {
+                                        setEndTime(e.target.value)
+                                    }}
+                                    value={endTime}
+                                    className="w-fit px-6 bg-white h-[70px] shadow-md rounded-xl flex flex-row justify-center items-center" type={"time"} />
                             </div>
                         </div>
                         <p className="text-md text-black font-[Montserrat]">Рабочие дни:</p>
@@ -217,9 +260,9 @@ function StaffPage() {
                         </div>
 
                         <div
-                            onClick={addOrg}
+                            onClick={edit ? editOrg : addOrg}
                             className="px-12 py-4 bg-[#0067E3] rounded-xl text-md cursor-pointer font-[Montserrat] text-white flex justify-center items-center w-fit">
-                            Добавить
+                            {edit ? "Сохранить" : "Добавить"}
                         </div>
                         <a>
                             {result}
@@ -239,10 +282,14 @@ function StaffPage() {
                             </thead>
                             <tbody>
                                 {staffList && staffList.length > 0 &&
-                                    staffList.map(({ name, position, _id, statistics }, index) => {
+                                    staffList.map(({ name, position, _id, statistics, worktime, timetable }, index) => {
                                         const isLast = index === staffList.length - 1;
                                         const classes = isLast ? "p-4" : "p-4 border-b border-blue-gray-50";
-                                        const time = statistics[statistics.length-1].total_work_time
+                                        const last_stat = statistics[statistics.length - 1];
+                                        const time = last_stat?.total_work_time || 0
+
+                                        const first_log = last_stat?.logs?.[0]
+                                        const last_log = last_stat?.logs?.[last_stat?.logs?.length - 1]
                                         return (
                                             <tr key={name}>
                                                 <td className={classes}>
@@ -252,7 +299,17 @@ function StaffPage() {
                                                     {position}
                                                 </td>
                                                 <td className={classes}>
-                                                    {(time/60).toFixed(1)} минут
+                                                    {(time / 60).toFixed(1)} минут
+                                                </td>
+                                                <td className={classes}>
+                                                    {first_log?.time_start}
+                                                </td>
+                                                <td className={classes}>
+                                                    {last_log?.time_end}
+                                                </td>
+                                                <td className={classes}>
+                                                    <img src={URL_SERVER + "/image/" + last_log?.start_photo_path}/>
+                                                    <img src={URL_SERVER + "/image/" + last_log?.end_photo_path}/>
                                                 </td>
                                                 <td className={classes}>
                                                     {_id}
@@ -261,6 +318,12 @@ function StaffPage() {
                                                     <div
                                                         onClick={() => {
                                                             setName(name)
+                                                            setId(_id)
+                                                            setPosition(position)
+                                                            setEdit(true)
+                                                            setStartTime(worktime.startTime)
+                                                            setEndTime(worktime.endTime)
+                                                            setTimetable(timetable)
                                                         }}
                                                         className="px-8 py-2 bg-[#0067E3] rounded-xl text-md cursor-pointer font-[Montserrat] text-white flex justify-center items-center w-fit">
                                                         Изменить
