@@ -78,7 +78,7 @@ async def detect_faces_in_video():
     names = list(face_encodings.keys())
     print(names)
 
-    streamer = ThreadedCamera(source='demo.mp4')
+    streamer = ThreadedCamera(0)
 
     while True:
         frame = streamer.grab_frame()
